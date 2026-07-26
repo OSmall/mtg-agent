@@ -73,6 +73,30 @@ _Avoid_: Current deck, real deck
 A proposed decklist produced or modified by the agent. A Deck Candidate remains separate from the user's Collection state unless it later appears in imported source collection data as an Existing Deck.
 _Avoid_: Suggested deck, generated deck
 
+**Deck Tuning**:
+The evaluation and revision of an Existing Deck or Deck Candidate to better satisfy its confirmed Deck Building Brief, usually through paired additions and cuts. Deck Tuning preserves the intended Power Level and play experience by default unless the brief explicitly changes them.
+_Avoid_: Deck upgrade when the goal is not strictly greater power
+
+**Deck Change Proposal**:
+A non-persisted Deck Tuning result that recommends paired additions and cuts, records rejected additions when relevant, and explains the expected aggregate effects without creating a revised Deck Candidate.
+_Avoid_: Deck Candidate, upgrade list, maybeboard
+
+**Addition Pool**:
+The set of cards the agent may consider adding during Deck Tuning, such as Available Cards, permitted Committed Cards, or any legal card including Missing Cards. The Addition Pool is determined by the Deck Building Brief, including its Collection Access Policy and missing-card tolerance.
+_Avoid_: Card source, upgrade pool, candidate pool
+
+**Deck Role**:
+A function a card performs within a specific Deck Candidate, such as ramp, card advantage, interaction, protection, enabler, payoff, or win condition. A card may perform multiple Deck Roles, which are candidate-specific and distinct from source-backed Card Identity Tags.
+_Avoid_: Category, package
+
+**Role Coverage**:
+The degree to which cards in a Deck Candidate perform a Deck Role in that deck's context. Role Coverage accounts for reliability, conditions, efficiency, repeatability, modal competition, and dependencies rather than treating every matching Card Identity Tag as an equal contribution.
+_Avoid_: Tag count, role count when contributions are not equivalent
+
+**Deck Package**:
+A coherent group of cards in a Deck Candidate that work together toward a shared strategic purpose, such as sacrifice fodder, sacrifice outlets, and death payoffs. A Deck Package may contain several Deck Roles, and a card may participate in multiple Deck Packages.
+_Avoid_: Category, role
+
 **Portable Decklist**:
 The importable card-name decklist for a Deck Candidate, formatted for broad compatibility with common MTG deck tools. A Portable Decklist does not include collection locations, prices, explanations, or printing details by default.
 _Avoid_: Export, raw list

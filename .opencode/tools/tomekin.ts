@@ -196,9 +196,9 @@ export const render_deck_candidate = tool({
 });
 
 export const save_deck_candidate = tool({
-  description: "Persist a final Commander Deck Candidate and its resolved Card Identity rows.",
+  description: "Persist a final Commander Deck Candidate and its resolved Card Identity rows. Pass an existing Deck Candidate ID to update it in place; omit the ID only to create a new candidate.",
   args: {
-    id: z.uuid().optional(),
+    id: z.uuid().optional().describe("Existing Deck Candidate ID to update in place. Omit only when creating a new candidate."),
     label: z.string().min(1),
     format: z.enum(["commander"]).default("commander"),
     formatAnchor: z.string().min(1).nullable().default(null),

@@ -14,7 +14,7 @@ import {
 const testLog = createTestRootLoggerFromEnv();
 
 describe("SQLite Deck Candidate repository", () => {
-  test("saves and reopens candidate cards with Card Identity names", async () => {
+  test("saves, updates in place, and reopens candidate cards with Card Identity names", async () => {
     const dbPath = join(mkdtempSync(join(tmpdir(), "tomekin-candidate-")), "test.sqlite");
     applySqliteMigrations(dbPath, {log: testLog});
     const db = openDatabase(dbPath, {log: testLog});
@@ -22,8 +22,10 @@ describe("SQLite Deck Candidate repository", () => {
       db.insert(cardIdentity).values([
         identity("33333333-3333-4333-8333-333333333333", "Example Commander", "Legendary Creature — Elf"),
         identity("11111111-1111-4111-8111-111111111111", "Sol Ring", "Artifact"),
+        identity("22222222-2222-4222-8222-222222222222", "Cultivate", "Sorcery"),
       ]).run();
-      const repository = createSqliteDeckCandidateRepository(db, {now: () => new Date("2026-01-01T00:00:00.000Z")});
+      let now = new Date("2026-01-01T00:00:00.000Z");
+      const repository = createSqliteDeckCandidateRepository(db, {now: () => now});
 
       const saved = await repository.saveDeckCandidate({
         label: "Example Deck",
@@ -49,9 +51,34 @@ describe("SQLite Deck Candidate repository", () => {
       expect(reopened.value.label).toBe("Example Deck");
       expect(reopened.value.cards).toHaveLength(2);
 
+      now = new Date("2026-01-02T00:00:00.000Z");
+      const updated = await repository.saveDeckCandidate({
+        id: saved.value.id,
+        label: "Updated Example Deck",
+        format: "commander",
+        formatAnchor: "Example Commander",
+        commanderBracket: "Bracket 2",
+        brief: saved.value.brief,
+        collectionImportTimestamp: null,
+        markdown: "# Updated Example Deck",
+        cards: [
+          {cardIdentityId: "33333333-3333-4333-8333-333333333333", quantity: 1, section: "commander", sortOrder: 0, note: null},
+          {cardIdentityId: "22222222-2222-4222-8222-222222222222", quantity: 1, section: "deck", sortOrder: 1, note: null},
+        ],
+      });
+
+      expect(updated.isOk()).toBe(true);
+      if (updated.isErr()) throw new Error(updated.error.message);
+      expect(updated.value.id).toBe(saved.value.id);
+      expect(updated.value.createdAt).toEqual(saved.value.createdAt);
+      expect(updated.value.updatedAt).toEqual(now);
+      expect(updated.value.cards.map((card) => card.cardName)).toEqual(["Example Commander", "Cultivate"]);
+
       const listed = await repository.listDeckCandidates();
       expect(listed.isOk()).toBe(true);
       if (listed.isErr()) throw new Error(listed.error.message);
+      expect(listed.value).toHaveLength(1);
+      expect(listed.value[0]?.label).toBe("Updated Example Deck");
       expect(listed.value[0]?.cardCount).toBe(2);
     } finally {
       closeDatabase(db);
