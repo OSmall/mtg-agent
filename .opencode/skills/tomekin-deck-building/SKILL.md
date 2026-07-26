@@ -59,3 +59,6 @@ Deck-building quality bar:
   as unsupported caveats.
 - A Deck Change Proposal is non-persisted analysis. Build a revised Deck Candidate only after explicit acceptance, and
   save it only after a separate confirmation of the exact final Change Summary and deterministic revalidation.
+- Treat saved Deck Candidates as mutable. When persisting accepted tuning changes, pass the source candidate's ID to
+  `save_deck_candidate` so it updates in place. Omit the ID only for an imported Existing Deck or when the user
+  explicitly requests a new candidate, copy, or variant.

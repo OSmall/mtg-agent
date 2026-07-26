@@ -101,9 +101,14 @@ curve, and legality; explain dependency or aggregate-rationale breakage.
 
 Build a complete revised Deck Candidate only when the user explicitly asks to apply or accept a proposal. Acceptance of a
 recommendation does not authorize persistence. Before saving, show a final Change Summary with exact additions, cuts,
-quantities, and any commander change, then wait for confirmation of that exact set. Never save in the same message that
-first reveals the exact final change set.
+quantities, any commander change, and the persistence target, then wait for confirmation of that exact set. Never save
+in the same message that first reveals the exact final change set or persistence target.
 
 After confirmation, resolve the resulting list, rerun `validate_format_legality` and `evaluate_deck_candidate`, render
-the revised Deck Candidate, and save only when deterministic checks pass. Do not mutate the source Existing Deck or
-Collection state; users apply accepted changes in their collection software.
+the revised Deck Candidate, and save only when deterministic checks pass.
+
+- When tuning a saved Deck Candidate, update that candidate in place by passing its existing ID to
+  `save_deck_candidate`. Do not create a new candidate unless the user explicitly requests a copy, variant, or new
+  candidate.
+- When tuning an Existing Deck inferred from imported Collection data, do not mutate the Collection or source deck.
+  Save an accepted revision as a Deck Candidate because Collection write-back is unsupported.

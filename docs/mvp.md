@@ -184,13 +184,16 @@ for performance from one that may be an intentional theme or play-experience cho
 When the user asks to apply or accept a Deck Change Proposal, the resulting output should include both a full revised
 Deck Candidate and a concise Change Summary. The full Deck Candidate is the source of truth for import and review. The
 Change Summary should explain additions, cuts, and the most important reasons for those changes. The agent should
-persist the revised Deck Candidate only when the user explicitly asks it to do so.
+persist the revised Deck Candidate only when the user explicitly asks it to do so. If the tuning source is a saved Deck
+Candidate, persistence should update that candidate in place by default. A new candidate should be created only when the
+source is an imported Existing Deck or the user explicitly requests a copy, variant, or new candidate.
 
 Before persistence, the agent should present an explicit final Change Summary containing the exact additions and cuts,
-including quantities and any commander change, so the user can see how the decklist will change. The agent should wait
-for confirmation of that exact change set and should not persist in the same message that first reveals it. After
-confirmation and before saving, the agent should resolve the resulting list and rerun deterministic legality and
-Deck Candidate evaluation.
+including quantities, any commander change, and whether the operation will update an existing candidate or create a new
+one, so the user can see how the decklist and saved record will change. The agent should wait for confirmation of that
+exact change set and persistence target and should not persist in the same message that first reveals them. After
+confirmation and before saving, the agent should resolve the resulting list and rerun deterministic legality and Deck
+Candidate evaluation.
 
 The user may accept, reject, or modify individual swaps in a Deck Change Proposal. When only part of a proposal is
 accepted, the agent should recompute Deck Role representation, deck size, mana curve, and legality before presenting the

@@ -77,5 +77,7 @@ imported Collection tools when relevant. Persist final candidates only after all
 Identity records.
 
 Deck Change Proposal output is analysis, not a saved deck. State that nothing was saved. When a user accepts changes,
-show the exact final additions, cuts, quantities, and commander change before persistence; wait for confirmation, then
-resolve and revalidate before saving.
+show the exact final additions, cuts, quantities, commander change, and persistence target before persistence; wait for
+confirmation, then resolve and revalidate before saving. Update a source Deck Candidate in place by passing its existing
+ID to `save_deck_candidate`. Create a new candidate only for an imported Existing Deck or an explicit request for a new
+candidate, copy, or variant.

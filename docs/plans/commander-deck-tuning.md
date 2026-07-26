@@ -216,11 +216,13 @@ Quick candidate reviews should remain concise.
 - Build a complete revised Deck Candidate only when the user explicitly asks to apply or accept a proposal.
 - Do not persist merely because the user accepted the strategic recommendation.
 - Before persistence, present an explicit final Change Summary with exact additions, cuts, quantities, and commander
-  changes.
+  changes, plus whether persistence will update a saved Deck Candidate or create a new one.
 - Never persist in the same message that first reveals the exact final change set.
 - Wait for confirmation of that exact change set.
 - After confirmation, resolve the resulting list and rerun deterministic legality and Deck Candidate evaluation before
   saving.
+- Update a source Deck Candidate in place by default. Create a new candidate only when the source is an imported Existing
+  Deck or the user explicitly requests a copy, variant, or new candidate.
 
 ## Initial Implementation Files
 
