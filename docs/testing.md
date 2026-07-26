@@ -148,3 +148,24 @@ The default test suite should not call live LLMs.
 Test deterministic prompt inputs, retrieved context, service outputs, and rendered artifacts with normal tests. Live LLM evaluation should be explicit, separate from `bun test`, and used only when intentionally assessing model behaviour.
 
 LLM-produced recommendations should be treated as proposals until deterministic services validate card identity, Collection status, Availability, Portable Decklist format, and Commander legality where local data supports those checks. Failed validation should produce structured failures or revision requests.
+
+## Future Deck Tuning Scenario Evaluation
+
+The initial `commander-deck-tuning` skill does not require a comprehensive LLM scenario suite in its definition of done.
+Future evaluation should use acceptable-behaviour invariants rather than golden lists of exact swaps because Deck Tuning
+recommendations are intentionally nondeterministic.
+
+Representative scenarios should cover:
+
+- User-nominated cards where none, some, or all should be recommended.
+- A structural deficit repaired by a cross-role cut.
+- A healthy deck receiving like-for-like improvements.
+- Multi-role and modal cards.
+- A commander swap and a separate proposed Color Identity change.
+- A protected theme or pet card.
+- Open-ended tuning with Collection-only and all-legal-card Addition Pools.
+- Partial acceptance followed by re-analysis.
+
+Useful invariants include explicit Addition Pool and assumptions, paired additions and cuts, preserved deck size,
+deterministic legality validation when a revised Deck Candidate is built, evidence-backed explanations, and no
+persistence before confirmation of the exact final change set.
