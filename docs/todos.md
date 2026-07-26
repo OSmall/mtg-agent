@@ -20,3 +20,5 @@ Authored and edited only by osmall, not agents.
   - e.g. Don't use the collection-stored basic lands when building decks. Pretend there is an infinite supply of basic
     lands.
 - Make better use of .jsonl Scryfall files i.e. stream them to save memory
+- Make deck candidate updates much faster. Right now, a 3 card substitution update takes like 6 mins; unacceptable.
+- Define project as reached MVP. Update docs
