@@ -133,6 +133,8 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
 - Explicit Scryfall bulk sync for `oracle_cards`, `all_cards`, and `oracle_tags`.
 - ManaBox Collection CSV import with blocking validation and non-destructive failed imports.
 - Commander/EDH-focused opencode deck-building agent with deterministic local tools.
+- Commander Existing Deck tuning: review proposed additions, identify paired cuts, or diagnose open-ended improvements
+  within an explicitly stated Addition Pool.
 - Card search, card identity lookup, Oracle Tag lookup, Commander legality validation, deck rendering, and Deck Candidate
   persistence tools.
 - Structured local logging for CLI commands, SQLite queries, imports, sync, and opencode tool calls.
@@ -144,6 +146,8 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
 - Normal deck-building is local/offline and will not fetch missing Scryfall data automatically.
 - No npm package, installer, hosted UI, or plugin marketplace packaging is provided in this alpha.
 - Prices, exhaustive combo detection, and live LLM evaluation are out of scope for the default local tools.
+- Deck-tuning recommendations are reasoned proposals, not deterministic optimality guarantees; prices and budgeted
+  purchase recommendations are not yet supported.
 
 ## Development Commands
 

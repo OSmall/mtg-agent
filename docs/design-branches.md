@@ -25,14 +25,9 @@ This document captures unresolved design branches to resume later. It should sta
 - Continue hardening the CQL2-shaped `query_cards` Agent Tool as the primary card retrieval surface.
 - Loosen the base MTG deck-builder agent workflow while keeping strict authority boundaries: no raw database MCP access,
   no arbitrary file or shell access, and only explicitly allowed Tomekin Tools.
-- Add a `commander-deck-tuning` methodology skill for Commander-specific Deck Tuning. It should compose
-  `commander-deck-architecture` and `query-cards`, while the product domain retains format-extensible Deck Tuning
-  language. The agent should load it automatically for confirmed Commander requests involving an Existing Deck,
-  additions, cuts, swaps, upgrades, or deck improvement; users may also invoke it explicitly. The implementation slice
-  is specified in [`plans/commander-deck-tuning.md`](./plans/commander-deck-tuning.md).
-- Keep the initial `commander-deck-tuning` implementation to the skill, agent-loading integration, documentation, and a
-  lightweight manual smoke test using existing tools and agent reasoning. Do not add database migrations, a persisted
-  role taxonomy, a new role-analysis tool, price support, or the future comprehensive scenario suite in this slice.
+- Forward-test `commander-deck-tuning` against real deck reviews before promoting any of its transient role reasoning to
+  durable data or deterministic services. Its initial slice intentionally has no database migration, persisted role
+  taxonomy, new role-analysis tool, price support, or comprehensive scenario suite.
 - Move proven deck-building workflows into skills or subagents after they are validated through real use.
 - Decide whether tools accept file paths, raw text input, or both.
 - Decide how local configuration such as `TOMEKIN_DB_PATH` is exposed to tools.

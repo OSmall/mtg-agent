@@ -6,8 +6,8 @@ description: Use when building or revising an MTG Deck Candidate with Tomekin to
 # Tomekin Deck Building
 
 Use this workflow to coordinate local deck-building through Tomekin tools. This skill is the canonical source for the
-tool lifecycle. Format-specific deck construction methodology belongs in format skills such as
-`commander-deck-architecture`.
+tool lifecycle. Format-specific construction and tuning methodology belongs in format skills such as
+`commander-deck-architecture` and `commander-deck-tuning`.
 
 ## Workflow
 
@@ -31,10 +31,14 @@ tool lifecycle. Format-specific deck construction methodology belongs in format 
 
 - For Commander/EDH, load `commander-deck-architecture` after the Deck Building Brief confirms `format: commander` or an
   equivalent Commander/EDH intent.
+- For a confirmed Commander Existing Deck or Deck Candidate request involving additions, cuts, swaps, upgrades, or
+  improvement, load `commander-deck-tuning`. It determines whether a concise tuning context is enough for a candidate
+  review or an open review needs a confirmed tuning brief and explicit Addition Pool.
 - If the requested format is unsupported by local tools or no methodology skill exists, say so directly and ask whether
   the user wants a best-effort unsupported build.
-- Do not duplicate format-specific construction heuristics here. Keep Commander role-density targets, tag snowballing,
-  mana-base heuristics, and win-path methodology in `commander-deck-architecture`.
+- Do not duplicate format-specific construction or tuning heuristics here. Keep Commander role-density targets, tag
+  snowballing, mana-base heuristics, and win-path methodology in `commander-deck-architecture`; keep change proposals,
+  role diagnosis, and tuning-specific persistence boundaries in `commander-deck-tuning`.
 
 Deck-building quality bar:
 
@@ -53,3 +57,5 @@ Deck-building quality bar:
   deterministic tools return structured data for them.
 - Do not claim support for gameplay simulation, opening-hand analysis, or goldfishing. If those would matter, label them
   as unsupported caveats.
+- A Deck Change Proposal is non-persisted analysis. Build a revised Deck Candidate only after explicit acceptance, and
+  save it only after a separate confirmation of the exact final Change Summary and deterministic revalidation.

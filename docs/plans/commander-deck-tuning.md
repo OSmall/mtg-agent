@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned. The product behaviour and initial implementation boundary have been confirmed.
+Implemented in the MVP on 2026-07-26. This retained plan records the research basis and implementation boundary.
 
 ## Goal
 
@@ -255,4 +255,3 @@ Expected changes:
 - A comprehensive LLM scenario suite.
 
 Future scenario-evaluation cases are recorded in [`../testing.md`](../testing.md).
-
