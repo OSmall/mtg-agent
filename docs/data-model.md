@@ -194,8 +194,8 @@ analysis, and Portable Decklist names. `CardIdentity.name` is the canonical deck
 `CardPrinting.printedName` preserves the source printing name when the source provides one.
 
 `CardIdentity.layout` stores canonical Scryfall card layout values such as `normal`, `split`, `adventure`, `modal_dfc`,
-and `transform`. Reversible-card presentation is not a Card Identity layout in this model; it belongs on
-`CardPrinting.layout`.
+`transform`, and `front_card` for deck-type indicator cards. Reversible-card presentation is not a Card Identity layout
+in this model; it belongs on `CardPrinting.layout`.
 
 `CardIdentity.colorIdentity` should be stored and exposed as a canonical WUBRG-ordered scalar. Colorless cards have an empty Color Identity, not a `C` identity. Exact color identity search should use equality on the scalar. Commander-playable subset searches should be implemented as query logic over the scalar.
 

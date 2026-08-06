@@ -199,6 +199,7 @@ const cardIdentityLayoutValues = [
     "augment",
     "host",
     "art_series",
+    "front_card",
     "reversible_card",
 ] as const;
 

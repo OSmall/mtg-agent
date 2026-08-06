@@ -412,6 +412,24 @@ describe("Scryfall sync services", () => {
         );
     });
 
+    test("oracle_cards accepts Scryfall front_card deck-type indicators", () => {
+        const raw = RawScryfallOracleCardSchema.parse({
+            ...rawOracleCard(),
+            name: "Surprise!",
+            layout: "front_card",
+            type_line: "Card",
+            oracle_text: undefined,
+        });
+
+        expect(mapRawScryfallOracleCardToCardIdentityImportRecord(raw).identity.layout)
+            .toBe("front_card");
+        expect(RawScryfallAllCardSchema.parse({
+            ...rawAllCard(),
+            name: "Surprise!",
+            layout: "front_card",
+        }).layout).toBe("front_card");
+    });
+
     test("oracle_cards requires Game Changer data", () => {
         const result = RawScryfallOracleCardSchema.safeParse({
             object: "card",
