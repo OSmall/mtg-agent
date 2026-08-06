@@ -28,11 +28,28 @@ Future work may add versioning, undo, historical revision browsing, or compariso
 
 Future persistence work may also retain historical Collection snapshots. The MVP only needs import timestamps for freshness checks.
 
+Future persistence work may introduce a first-class `DeckBuildingProject` (or equivalent deck-building task aggregate)
+that owns the Format, confirmed Deck Building Brief revisions, and Collection provenance. Multiple Deck Candidates could
+reference the exact Brief revision they were built against instead of each embedding an independently mutable copy. This
+would make the distinction between requested intent and produced candidates explicit, while supporting variants,
+iteration, and historical comparison. The 60-card Constructed feature should keep the current embedded Brief model and
+make only the minimal duplication cleanup needed for strict multi-format support.
+
+Structured Deck Candidate data should become the source of truth for rendering. Future persistence work should reduce or
+remove the current full Markdown snapshot, especially the duplicated Portable Decklist, and render derived Markdown and
+decklist text from Deck Candidate fields and card rows instead of trusting previously saved agent-authored text. Only
+analysis that cannot be derived from the structured candidate should need its own persisted representation. This
+redesign is deferred from the 60-card Constructed feature.
+
 ## Rules Judging
 
 The MVP requires rules awareness, not full rules judging.
 
 Future work may add deeper rules support, including comprehensive rule citations, detailed interaction adjudication, and judge-style explanations.
+
+Legality Assessments currently use descriptive free-text reasons and warnings because the agent can consume them
+directly. Future work may introduce stable structured finding codes and typed context when a concrete UI, analytics,
+localization, or automated-remediation consumer needs them.
 
 ## Meta Analysis
 
@@ -59,6 +76,14 @@ The MVP should preserve structured saved Deck Opportunities and Deck Candidates 
 Future work may add a richer user interface over saved opportunities, deck candidates, refresh status, import summaries, and deck-building workflows.
 
 Future UI work may parse or wrap the MVP's structured Markdown output. Stable headings, sections, and repeated fields in MVP output are intended to keep that path open without defining UI architecture now.
+
+## Agent Quality Evaluation
+
+The default automated suite should remain deterministic, and current agent quality may be checked manually by the
+developer. Future work may add an explicit opt-in, versioned deck-building scenario suite that runs the existing Tomekin
+agent outside `bun test`, applies deterministic legality and artifact gates, and supports human review against a stable
+cohesion rubric. Do not introduce a separate judging agent, LLM-as-judge score, or CI threshold without evidence that
+the added machinery produces reliable decisions.
 
 ## Format Expansion
 
