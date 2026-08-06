@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./deck-building-brief": "./src/deck-building-brief.ts",
+    "./deck-candidate": "./src/deck-candidate.ts",
     "./scryfall-sync": "./src/scryfall-sync.ts"
   },
   "dependencies": {

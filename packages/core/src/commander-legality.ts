@@ -1,10 +1,11 @@
 import type {CardIdentity, CardIdentityFormatLegality, CardIdentityPart} from "./scryfall-sync";
 import type {DeckBuildingBrief} from "./deck-building-brief";
+import {effectiveCopyMaximum} from "./deck-construction-rules";
 
 export type CommanderDeckCard = {
   readonly card: CardIdentity;
   readonly quantity: number;
-  readonly section: "commander" | "deck";
+    readonly section: "commander" | "mainboard";
   readonly legalities?: readonly CardIdentityFormatLegality[];
   readonly parts?: readonly CardIdentityPart[];
 };
@@ -16,8 +17,6 @@ export type CommanderLegalityResult = {
   readonly reasons: readonly string[];
   readonly warnings: readonly string[];
 };
-
-const basicLandNames = new Set(["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]);
 
 export function isCommanderEligible(card: CardIdentity, parts: readonly CardIdentityPart[] = []): boolean {
   const typeLine = joinedTypeLine(card, parts);
@@ -50,22 +49,28 @@ export function validateCommanderDeck(cards: readonly CommanderDeckCard[], brief
   reasons.push(...commanderResult.reasons);
   warnings.push(...commanderResult.warnings);
 
-  const ruleZero = (brief?.ruleZeroExceptions.length ?? 0) > 0;
+    const ruleZero = (brief?.format === "commander" ? brief.ruleZeroExceptions.length : 0) > 0;
   const size = cards.reduce((sum, row) => sum + row.quantity, 0);
   if (size !== 100 && !ruleZero) reasons.push(`Commander deck size is ${size}; expected exactly 100 cards including commander section.`);
 
   const commanderColorIdentity = mergeColorIdentities(cards.filter((card) => card.section === "commander").map((card) => card.card.colorIdentity));
-  const quantityByName = new Map<string, number>();
+    const quantityByIdentity = new Map<string, { card: CardIdentity; quantity: number }>();
   for (const row of cards) {
-    quantityByName.set(row.card.name, (quantityByName.get(row.card.name) ?? 0) + row.quantity);
-    if (row.section === "deck" && !isColorSubset(row.card.colorIdentity, commanderColorIdentity)) {
+      const previous = quantityByIdentity.get(row.card.id);
+      quantityByIdentity.set(row.card.id, {card: row.card, quantity: (previous?.quantity ?? 0) + row.quantity});
+      if (row.section === "mainboard" && !isColorSubset(row.card.colorIdentity, commanderColorIdentity)) {
       reasons.push(`${row.card.name} has color identity ${row.card.colorIdentity || "colorless"}, outside commander identity ${commanderColorIdentity || "colorless"}.`);
     }
     const commanderLegality = row.legalities?.find((legality) => legality.format === "commander")?.legality;
     if (commanderLegality && commanderLegality !== "legal") reasons.push(`${row.card.name} is ${commanderLegality} in Commander according to local Scryfall data.`);
   }
-  for (const [name, quantity] of quantityByName) {
-    if (quantity > 1 && !basicLandNames.has(name)) reasons.push(`${name} appears ${quantity} times; Commander singleton allows only one non-basic copy.`);
+    for (const {card, quantity} of quantityByIdentity.values()) {
+        const maximum = effectiveCopyMaximum(card, 1);
+        if (maximum !== null && quantity > maximum) {
+            reasons.push(maximum === 1
+                ? `${card.name} appears ${quantity} times; Commander singleton allows only one non-basic copy.`
+                : `${card.name} appears ${quantity} times; Commander permits at most ${maximum}.`);
+        }
   }
   if (ruleZero) warnings.push("Rule Zero exceptions are present in the confirmed brief; deterministic legality issues must be labelled in output.");
 

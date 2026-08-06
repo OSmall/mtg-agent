@@ -6,8 +6,11 @@ import {
     type ColorIdentity,
     colorIdentityValues,
     type FormatLegality,
-    formatLegalityValues
+    formatLegalityValues,
+    supportedScryfallFormatValues,
 } from "./scryfall-sync";
+
+export type CardQueryLegalityFormat = (typeof supportedScryfallFormatValues)[number];
 
 export const cardQueryPropertyValues = [
     "identity.id",
@@ -20,6 +23,12 @@ export const cardQueryPropertyValues = [
     "identity.gameChanger",
     "identity.edhrecRank",
     "legality.commander",
+    "legality.standard",
+    "legality.pioneer",
+    "legality.modern",
+    "legality.legacy",
+    "legality.vintage",
+    "legality.pauper",
     "tag.id",
     "tag.slug",
     "tag.label",
@@ -60,7 +69,7 @@ type AtomicCardQueryFilter = Extract<CardQueryFilter, {
 }>;
 
 export type CardQueryInclude = {
-    readonly legalities?: readonly ["commander", ..."commander"[]] | undefined;
+    readonly legalities?: readonly [CardQueryLegalityFormat, ...CardQueryLegalityFormat[]] | undefined;
     readonly tags?: boolean | undefined;
     readonly collectionCards?: boolean | undefined;
 };
@@ -113,7 +122,7 @@ export type CardQueryResultItem = {
     readonly gameChanger: boolean;
     readonly edhrecRank: number | null;
     readonly totalQuantity: number;
-    readonly legalities?: Partial<Record<"commander", FormatLegality>> | undefined;
+    readonly legalities?: Partial<Record<CardQueryLegalityFormat, FormatLegality>> | undefined;
     readonly tags?: {
         readonly direct: readonly CardQueryTagResult[];
         readonly inherits: readonly CardQueryTagResult[]
@@ -152,6 +161,7 @@ const scalarOperators = new Set(["=", "!=", "<", "<=", ">", ">="]);
 const operatorValues = new Set(["and", "or", "not", "=", "!=", "<", "<=", ">", ">=", "contains", "in", "colorIdentitySubsetOf", "hasTagInHierarchy", "withTagging", "withCollectionCard"]);
 const colorIdentitySet = new Set<string>(colorIdentityValues);
 const formatLegalitySet = new Set<string>(formatLegalityValues);
+const queryLegalityFormatSet = new Set<string>(supportedScryfallFormatValues);
 const numericProperties = new Set<CardQueryProperty>(["identity.manaValue", "identity.edhrecRank", "collection.quantity"]);
 const booleanProperties = new Set<CardQueryProperty>(["identity.gameChanger", "collection.altered", "collection.misprint"]);
 const taggingScopeProperties = new Set<CardQueryProperty>(["tag.id", "tag.slug", "tag.label", "tag.alias", "tag.weight"]);
@@ -388,10 +398,10 @@ function validateScalarValue(op: string, property: CardQueryProperty, value: unk
         message: `${property} requires a valid Color Identity value.`,
         allowedValues: colorIdentityValues
     }];
-    if (property === "legality.commander") return typeof value === "string" && formatLegalitySet.has(value) ? [] : [{
+    if (property.startsWith("legality.")) return typeof value === "string" && formatLegalitySet.has(value) ? [] : [{
         pointer,
         code: "invalid_value",
-        message: "legality.commander requires a valid legality value.",
+        message: `${property} requires a valid legality value.`,
         allowedValues: formatLegalityValues
     }];
     if (property === "collection.quantity") {
@@ -483,11 +493,11 @@ function validateInclude(value: unknown, pointer: string): CardQueryValidationIs
             const seen = new Set<string>();
             value.legalities.forEach((format, index) => {
                 const itemPointer = `${pointer}/legalities/${index}`;
-                if (format !== "commander") issues.push({
+                if (typeof format !== "string" || !queryLegalityFormatSet.has(format)) issues.push({
                     pointer: itemPointer,
                     code: "invalid_value",
                     message: "Unsupported legality include format.",
-                    allowedValues: ["commander"]
+                    allowedValues: supportedScryfallFormatValues
                 });
                 else if (seen.has(format)) issues.push({
                     pointer: itemPointer,

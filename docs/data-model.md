@@ -160,6 +160,11 @@ Relationships:
 
 It should record the bulk data type, import status, started and completed timestamps, source updated timestamp where available, source URI or bulk data identifier where available, imported record counts, warnings, and blocking errors. The bulk data type should use Scryfall's canonical response `type` value, such as `all_cards`, rather than URL path slugs. URL path mapping belongs in the Scryfall adapter.
 
+Each import records the dataset-specific Import Contract Revision that produced it. Reference readiness compares the
+latest successful import with the currently required revision; missing datasets and revision-incompatible datasets are
+reported separately. Schema-migrated legacy imports use revision zero and remain unusable for reference-dependent
+operations until the affected dataset is imported successfully again.
+
 Successful `ScryfallBulkDataImport` records update the corresponding Scryfall-backed records. Failed imports should preserve diagnostic information without replacing the last usable Scryfall-backed dataset.
 
 `ScryfallBulkDataImport` writes should use transactional full replacement per dataset with staging. The importer should load and validate the complete dataset before replacing the target records. A successful import replaces the target dataset and records a successful `ScryfallBulkDataImport`; a failed import leaves the previous usable dataset unchanged.
@@ -204,6 +209,10 @@ stores Scryfall's required `game_changer` boolean and should not be nullable; im
 source
 boolean should fail rather than treating the value as unknown.
 
+`CardIdentity` stores a required compiled Copy Limit Override as one of `none`, `unlimited`, or `maximum` with a
+positive integer maximum. The `oracle_cards` importer derives this value locally from canonical type and Oracle text;
+unsupported potential override wording blocks the staged import rather than silently applying a Format default.
+
 `CardIdentity` should include the source page URI for opening the source reference page. Format legality should not live as Commander-specific columns on `CardIdentity`; it belongs in `CardIdentityFormatLegality` records.
 
 Relationships:
@@ -236,6 +245,10 @@ Relationships:
 `CardIdentityFormatLegality` represents one source-provided legality status for a Card Identity in one Format.
 
 It should be imported from Scryfall `oracle_cards.legalities` with the `oracle_cards` replacement transaction. Format should remain source-defined non-empty text so new Scryfall formats do not require schema changes. Legality should be constrained to the known Scryfall legality states: `legal`, `not_legal`, `banned`, and `restricted`. Entries with `not_legal` should be stored, because absence would otherwise be ambiguous.
+
+Every imported Oracle Cards record must include `commander`, `standard`, `pioneer`, `modern`, `legacy`, `vintage`, and
+`pauper`. Other source-provided Format rows remain stored, but the supported Card Query legality surface is this closed
+sanctioned set. Casual 60 deliberately has no source-legality property.
 
 Relationships:
 
@@ -323,7 +336,12 @@ Relationships:
 
 It should preserve enough structured information to reopen, compare, refresh, and export the proposal without depending on the original chat conversation. It remains separate from Collection state unless the user later updates their source collection system and reimports.
 
-The decklist is stored through `deck_candidate_card` rows. The larger Deck Candidate explanation is stored as a Markdown body containing the stable MVP output sections. The first SQLite implementation stores scalar metadata on `deck_candidate`: `id`, `label`, `format`, nullable `format_anchor`, nullable `commander_bracket`, Zod-validated `brief_json`, nullable `collection_import_timestamp`, `markdown`, `created_at`, and `updated_at`. The stored Markdown body is the canonical saved explanation and should be returned as stored on ordinary reads.
+The decklist is stored through `deck_candidate_card` rows. The larger Deck Candidate explanation is stored as a Markdown
+body containing the stable MVP output sections. SQLite stores scalar metadata on `deck_candidate`: `id`, `label`,
+`format`, nullable `format_anchor`, Zod-validated `brief_json`, nullable `collection_import_timestamp`, `markdown`,
+`created_at`, and `updated_at`. `brief_json.format` is authoritative and repository writes derive the query-projection
+`format` column from it. Commander Bracket exists only in the Commander Brief JSON. The stored Markdown body is the
+canonical saved explanation and should be returned as stored on ordinary reads.
 
 The Collection import timestamp is provenance metadata. It supports freshness checks by comparison with the latest successful `CollectionImport`; Availability, Missing Cards, Collection Status, and Collection Pull Lists should be computed when needed.
 
@@ -342,7 +360,11 @@ Relationships:
 
 `DeckCandidateCard` represents one card entry in a Deck Candidate.
 
-It should be relational rather than stored only inside a JSON array so the system can refresh Collection Status, inspect Missing Cards, validate legality, and query deck contents. The first SQLite implementation stores `id`, `deck_candidate_id`, `card_identity_id`, `quantity`, Commander/EDH decklist `section`, stable `sort_order`, and nullable `note`. Portable Decklist card names should come from `CardIdentity`, not duplicated display names on `DeckCandidateCard`.
+It should be relational rather than stored only inside a JSON array so the system can refresh Collection Status, inspect
+Missing Cards, validate legality, and query deck contents. SQLite stores `id`, `deck_candidate_id`, `card_identity_id`,
+`quantity`, canonical `section`, stable `sort_order`, and nullable `note`. The closed section vocabulary is `commander`,
+`mainboard`, and `sideboard`; each Format's rules permit only its applicable subset. Portable Decklist card names should
+come from `CardIdentity`, not duplicated display names on `DeckCandidateCard`.
 
 Relationships:
 

@@ -23,7 +23,7 @@ import type {
   ScryfallRepository,
   ScryfallRepositoryError,
 } from "@tomekin/core";
-import {CardIdentityLayoutSchema} from "@tomekin/core";
+import {CardIdentityLayoutSchema, requiredScryfallImportContractRevisions} from "@tomekin/core";
 
 import type {TomekinDatabase} from "./database";
 import {
@@ -93,6 +93,8 @@ export function createSqliteScryfallRepository(
             mana_value REAL NOT NULL,
             type_line TEXT NOT NULL,
             oracle_text TEXT,
+            copy_limit_override_kind TEXT NOT NULL,
+            copy_limit_override_maximum INTEGER,
             color_identity TEXT NOT NULL,
             colors TEXT,
             color_indicator TEXT,
@@ -145,6 +147,8 @@ export function createSqliteScryfallRepository(
             mana_value,
             type_line,
             oracle_text,
+            copy_limit_override_kind,
+            copy_limit_override_maximum,
             color_identity,
             colors,
             color_indicator,
@@ -157,7 +161,7 @@ export function createSqliteScryfallRepository(
             edhrec_rank,
             game_changer,
             source_page_uri)
-          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
         `);
         const insertIdentityPart = db.$client.prepare(`
           INSERT INTO import_card_identity_part (card_identity_id,
@@ -192,6 +196,8 @@ export function createSqliteScryfallRepository(
               identity.manaValue,
               identity.typeLine,
               identity.oracleText,
+                identity.copyLimitOverride.kind,
+                identity.copyLimitOverride.kind === "maximum" ? identity.copyLimitOverride.maximum : null,
               identity.colorIdentity,
                 identity.colors,
                 identity.colorIndicator,
@@ -276,6 +282,8 @@ export function createSqliteScryfallRepository(
               mana_value,
               type_line,
               oracle_text,
+              copy_limit_override_kind,
+              copy_limit_override_maximum,
               color_identity,
               colors,
               color_indicator,
@@ -297,6 +305,8 @@ export function createSqliteScryfallRepository(
               mana_value,
               type_line,
               oracle_text,
+              copy_limit_override_kind,
+              copy_limit_override_maximum,
               color_identity,
               colors,
               color_indicator,
@@ -318,6 +328,8 @@ export function createSqliteScryfallRepository(
               mana_value = excluded.mana_value,
               type_line = excluded.type_line,
               oracle_text = excluded.oracle_text,
+              copy_limit_override_kind = excluded.copy_limit_override_kind,
+              copy_limit_override_maximum = excluded.copy_limit_override_maximum,
               color_identity = excluded.color_identity,
                                              colors = excluded.colors,
                                              color_indicator = excluded.color_indicator,
@@ -1027,6 +1039,7 @@ function insertImportRecord<TRecord>(
   const imported: ScryfallBulkDataImport = {
     id: randomUUIDv7("hex", input.startedAt.getTime()),
     bulkDataType,
+      importContractRevision: requiredScryfallImportContractRevisions[bulkDataType],
     status,
     startedAt: input.startedAt,
     completedAt: input.completedAt,
@@ -1041,6 +1054,7 @@ function insertImportRecord<TRecord>(
     .values({
       id: imported.id,
       bulkDataType: imported.bulkDataType,
+        importContractRevision: imported.importContractRevision,
       status: imported.status,
       startedAt: imported.startedAt,
       completedAt: imported.completedAt,
@@ -1115,6 +1129,9 @@ function toCardIdentity(row: typeof cardIdentity.$inferSelect): CardIdentity {
     manaValue: row.manaValue,
     typeLine: row.typeLine,
     oracleText: row.oracleText,
+      copyLimitOverride: row.copyLimitOverrideKind === "maximum"
+          ? {kind: "maximum", maximum: row.copyLimitOverrideMaximum!}
+          : {kind: row.copyLimitOverrideKind},
     colorIdentity: row.colorIdentity,
     colors: row.colors,
     colorIndicator: row.colorIndicator,
@@ -1234,6 +1251,7 @@ function toScryfallBulkDataImport(
   return {
     id: row.id,
     bulkDataType: row.bulkDataType,
+      importContractRevision: row.importContractRevision,
     status: row.status,
     startedAt: row.startedAt,
     completedAt: row.completedAt,

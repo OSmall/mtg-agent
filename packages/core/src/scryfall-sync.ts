@@ -53,6 +53,14 @@ export const ScryfallBulkDataTypeSchema = z.enum([
 ]);
 export type ScryfallBulkDataType = z.infer<typeof ScryfallBulkDataTypeSchema>;
 
+export const legacyScryfallImportContractRevision = 0;
+export const requiredScryfallImportContractRevisions = {
+    oracle_cards: 1,
+    all_cards: 1,
+    oracle_tags: 1,
+} as const satisfies Readonly<Record<ScryfallBulkDataType, number>>;
+export const ImportContractRevisionSchema = z.number().int().nonnegative();
+
 export const ImportStatusSchema = z.enum(["succeeded", "failed"]);
 export type ImportStatus = z.infer<typeof ImportStatusSchema>;
 
@@ -65,6 +73,63 @@ export const formatLegalityValues = [
 
 export const FormatLegalitySchema = z.enum(formatLegalityValues);
 export type FormatLegality = z.infer<typeof FormatLegalitySchema>;
+
+export const supportedScryfallFormatValues = [
+    "commander",
+    "standard",
+    "pioneer",
+    "modern",
+    "legacy",
+    "vintage",
+    "pauper",
+] as const;
+
+export const CopyLimitOverrideSchema = z.discriminatedUnion("kind", [
+    z.strictObject({kind: z.literal("none")}),
+    z.strictObject({kind: z.literal("unlimited")}),
+    z.strictObject({kind: z.literal("maximum"), maximum: z.number().int().positive()}),
+]);
+export type CopyLimitOverride = z.infer<typeof CopyLimitOverrideSchema>;
+
+export function compileCopyLimitOverride(cardName: string, oracleText: string | null): CopyLimitOverride {
+    if (!oracleText || !/deck/i.test(oracleText) || !/cards named/i.test(oracleText)) return {kind: "none"};
+
+    const sentences = oracleText.match(/[^.!?]*(?:[.!?]|$)/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [];
+    const potential = sentences.filter((sentence) => /deck/i.test(sentence) && /cards named/i.test(sentence));
+    if (potential.length === 0) return {kind: "none"};
+    for (const sentence of potential) {
+        const unlimited = /^A deck can have any number of cards named (.+)\.$/i.exec(sentence);
+        if (unlimited?.[1] === cardName) return {kind: "unlimited"};
+        const bounded = /^A deck can have up to (.+) cards named (.+)\.$/i.exec(sentence);
+        if (bounded?.[2] === cardName) {
+            const maximum = parsePositiveNumberExpression(bounded[1] ?? "");
+            if (maximum !== null) return {kind: "maximum", maximum};
+        }
+    }
+
+    throw new Error(`Card Identity ${cardName} has unsupported potential Copy Limit Override wording: ${potential.join(" ") || oracleText}`);
+}
+
+function parsePositiveNumberExpression(expression: string): number | null {
+    if (/^[1-9]\d*$/.test(expression)) return Number(expression);
+    const small: Readonly<Record<string, number>> = {
+        one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+        ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+        sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+    };
+    const normalized = expression.toLowerCase().replace(/-/g, " ").trim();
+    if (small[normalized]) return small[normalized];
+    const [tensWord, unitWord, ...extra] = normalized.split(/\s+/);
+    if (extra.length > 0 || !tensWord) return null;
+    const tens: Readonly<Record<string, number>> = {
+        twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+    };
+    const tensValue = tens[tensWord];
+    if (!tensValue) return null;
+    if (!unitWord) return tensValue;
+    const unitValue = small[unitWord];
+    return unitValue && unitValue < 10 ? tensValue + unitValue : null;
+}
 
 export const colorIdentityValues = [
   "",
@@ -159,6 +224,7 @@ export const CardIdentitySchema = z.object({
   manaValue: z.number(),
   typeLine: z.string().min(1),
   oracleText: z.string().nullable(),
+    copyLimitOverride: CopyLimitOverrideSchema,
   colorIdentity: ColorIdentitySchema,
     colors: NullableColorScalarSchema,
     colorIndicator: NullableColorScalarSchema,
@@ -338,7 +404,15 @@ export const RawScryfallOracleCardSchema = z
               }),
           )
           .optional(),
-    legalities: z.record(z.string().min(1), FormatLegalitySchema),
+      legalities: z.record(z.string().min(1), FormatLegalitySchema).superRefine((legalities, context) => {
+          const missing = supportedScryfallFormatValues.filter((format) => !(format in legalities));
+          if (missing.length > 0) {
+              context.addIssue({
+                  code: "custom",
+                  message: `Missing required Format legality keys: ${missing.join(", ")}.`,
+              });
+          }
+      }),
     scryfall_uri: z.url(),
   });
 export type RawScryfallOracleCard = z.infer<typeof RawScryfallOracleCardSchema>;
@@ -409,6 +483,7 @@ export function mapRawScryfallOracleCardToCardIdentityImportRecord(
     manaValue: card.cmc,
     typeLine: card.type_line,
     oracleText: card.oracle_text ?? null,
+      copyLimitOverride: compileCopyLimitOverride(card.name, card.oracle_text ?? null),
     colorIdentity: toColorIdentity(card.color_identity),
       colors: card.colors ? toColorIdentity(card.colors) : null,
       colorIndicator: card.color_indicator
@@ -585,6 +660,7 @@ export function hasScryfallOracleId(
 export const ScryfallBulkDataImportSchema = z.object({
   id: z.uuid(),
   bulkDataType: ScryfallBulkDataTypeSchema,
+    importContractRevision: ImportContractRevisionSchema,
   status: ImportStatusSchema,
   startedAt: z.date(),
   completedAt: z.date().nullable(),
@@ -634,6 +710,12 @@ export type ScryfallSyncError =
       readonly type: "missing_required_scryfall_datasets";
       readonly message: string;
       readonly missingBulkDataTypes: readonly ScryfallBulkDataType[];
+}
+    | {
+    readonly type: "reference_data_unready";
+    readonly message: string;
+    readonly missingBulkDataTypes: readonly ScryfallBulkDataType[];
+    readonly reimportRequiredBulkDataTypes: readonly ScryfallBulkDataType[];
     }
   | {
       readonly type: "not_implemented";
@@ -930,6 +1012,7 @@ export function createScryfallSyncServices(
         "all_cards",
       ];
       const missing: ScryfallBulkDataType[] = [];
+        const reimportRequired: ScryfallBulkDataType[] = [];
 
       for (const bulkDataType of required) {
         const latest = await repository.getLatestSuccessfulBulkDataImport(
@@ -940,14 +1023,24 @@ export function createScryfallSyncServices(
         }
         if (latest.value === null) {
           missing.push(bulkDataType);
+        } else if (
+            latest.value.importContractRevision
+            !== requiredScryfallImportContractRevisions[bulkDataType]
+        ) {
+            reimportRequired.push(bulkDataType);
         }
       }
 
-      if (missing.length > 0) {
+        if (missing.length > 0 || reimportRequired.length > 0) {
+            const requirements = [
+                missing.length > 0 ? `missing: ${missing.join(", ")}` : null,
+                reimportRequired.length > 0 ? `reimport required: ${reimportRequired.join(", ")}` : null,
+            ].filter((requirement): requirement is string => requirement !== null);
         return err({
-          type: "missing_required_scryfall_datasets",
-          message: `Missing required Scryfall datasets: ${missing.join(", ")}.`,
+            type: "reference_data_unready",
+            message: `Scryfall reference data is not ready (${requirements.join("; ")}).`,
           missingBulkDataTypes: missing,
+            reimportRequiredBulkDataTypes: reimportRequired,
         });
       }
 

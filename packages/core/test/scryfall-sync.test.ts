@@ -7,6 +7,7 @@ import {
     RawScryfallAllCardSchema,
     RawScryfallOracleCardSchema,
     RawScryfallOracleTagSchema,
+    requiredScryfallImportContractRevisions,
     type ScryfallBulkDataImport,
     type ScryfallBulkDataMetadata,
     type ScryfallBulkDataType,
@@ -176,11 +177,28 @@ describe("Scryfall sync services", () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isOk()) throw new Error("expected missing dataset failure");
-    expect(result.error.type).toBe("missing_required_scryfall_datasets");
-    if (result.error.type !== "missing_required_scryfall_datasets") {
+      expect(result.error.type).toBe("reference_data_unready");
+      if (result.error.type !== "reference_data_unready") {
       throw new Error("expected missing dataset failure");
     }
     expect(result.error.missingBulkDataTypes).toEqual(["all_cards"]);
+      expect(result.error.reimportRequiredBulkDataTypes).toEqual([]);
+  });
+
+    test("returns a structured reimport requirement for legacy import revisions", async () => {
+        const services = createScryfallSyncServices(
+            fakeRepository(["oracle_cards", "all_cards"], {revisions: {oracle_cards: 0}}),
+            clock,
+        );
+
+        const result = await services.requireCardReferenceData();
+
+        expect(result.isErr()).toBe(true);
+        if (result.isOk()) throw new Error("expected reimport requirement");
+        expect(result.error.type).toBe("reference_data_unready");
+        if (result.error.type !== "reference_data_unready") throw new Error("expected readiness failure");
+        expect(result.error.missingBulkDataTypes).toEqual([]);
+        expect(result.error.reimportRequiredBulkDataTypes).toEqual(["oracle_cards"]);
   });
 
   test("does not expose SQLite or Drizzle details through core service errors", async () => {
@@ -297,7 +315,7 @@ describe("Scryfall sync services", () => {
         keywords: [],
         game_changer: false,
       legalities: {
-        commander: "legal",
+          ...requiredLegalities(),
         future_format: "legal",
       },
       scryfall_uri: "https://scryfall.com/card/v10/12/sol-ring",
@@ -322,6 +340,29 @@ describe("Scryfall sync services", () => {
     expect(oracle.legalities.future_format).toBe("legal");
     expect("future_scryfall_field" in allCard).toBe(false);
   });
+
+    test("oracle_cards compiles Copy Limit Overrides into Card Identity records", () => {
+        const raw = RawScryfallOracleCardSchema.parse({
+            ...rawOracleCard(),
+            name: "Nazgûl",
+            oracle_text: "A deck can have up to nine cards named Nazgûl.",
+        });
+
+        expect(mapRawScryfallOracleCardToCardIdentityImportRecord(raw).identity.copyLimitOverride)
+            .toEqual({kind: "maximum", maximum: 9});
+    });
+
+    test("oracle_cards requires every supported sanctioned Format legality on each record", () => {
+        const result = RawScryfallOracleCardSchema.safeParse({
+            ...rawOracleCard(),
+            legalities: {commander: "legal", modern: "legal"},
+        });
+
+        expect(result.success).toBe(false);
+        if (result.success) throw new Error("expected incomplete legalities to fail");
+        expect(result.error.issues[0]?.message).toContain("standard");
+        expect(result.error.issues[0]?.message).toContain("pauper");
+    });
 
     test("oracle_cards accepts Scryfall prepare layout cards", () => {
         const raw = RawScryfallOracleCardSchema.parse({
@@ -357,7 +398,7 @@ describe("Scryfall sync services", () => {
                     colors: ["G"],
                 },
             ],
-            legalities: {commander: "legal"},
+            legalities: requiredLegalities(),
             scryfall_uri:
                 "https://scryfall.com/card/fin/000/adventurous-eater-have-a-bite",
         });
@@ -384,7 +425,7 @@ describe("Scryfall sync services", () => {
             oracle_text: "{T}: Add {C}{C}.",
             color_identity: [],
             keywords: [],
-            legalities: {commander: "legal"},
+            legalities: requiredLegalities(),
             scryfall_uri: "https://scryfall.com/card/v10/12/sol-ring",
         });
 
@@ -453,7 +494,10 @@ describe("Scryfall sync services", () => {
 
 function fakeRepository(
   availableBulkDataTypes: readonly ScryfallBulkDataType[],
-  options: {readonly failOn?: ScryfallBulkDataType} = {},
+  options: {
+      readonly failOn?: ScryfallBulkDataType;
+      readonly revisions?: Partial<Readonly<Record<ScryfallBulkDataType, number>>>;
+  } = {},
 ): ScryfallRepository {
   const successful = new Set(availableBulkDataTypes);
   return {
@@ -465,6 +509,8 @@ function fakeRepository(
       return ok({
         id: `${bulkDataType}-import`,
         bulkDataType,
+          importContractRevision: options.revisions?.[bulkDataType]
+              ?? requiredScryfallImportContractRevisions[bulkDataType],
         status: "succeeded",
         startedAt: clock.now(),
         completedAt: clock.now(),
@@ -562,7 +608,7 @@ function rawOracleCard() {
     color_identity: [],
     keywords: [],
     game_changer: false,
-    legalities: {commander: "legal"},
+      legalities: requiredLegalities(),
     scryfall_uri: "https://scryfall.com/card/v10/12/sol-ring",
   };
 }
@@ -576,6 +622,18 @@ function rawAllCard() {
     finishes: ["foil"],
     lang: "en",
   };
+}
+
+function requiredLegalities() {
+    return {
+        commander: "legal" as const,
+        standard: "legal" as const,
+        pioneer: "legal" as const,
+        modern: "legal" as const,
+        legacy: "legal" as const,
+        vintage: "legal" as const,
+        pauper: "legal" as const,
+    };
 }
 
 function rawOracleTag() {
@@ -639,6 +697,7 @@ function importAttempt(
   return {
     id: `${bulkDataType}-${status}`,
     bulkDataType,
+      importContractRevision: requiredScryfallImportContractRevisions[bulkDataType],
     status,
     startedAt: clock.now(),
     completedAt: clock.now(),

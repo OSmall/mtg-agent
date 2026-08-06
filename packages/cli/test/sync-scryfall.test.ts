@@ -241,7 +241,7 @@ function rawOracleCard() {
     color_identity: [],
     keywords: [],
     game_changer: false,
-    legalities: {commander: "legal"},
+      legalities: fixtureLegalities(),
     scryfall_uri: "https://scryfall.com/card/v10/12/sol-ring",
   };
 }
@@ -255,6 +255,18 @@ function rawAllCard() {
     finishes: ["foil"],
     lang: "en",
   };
+}
+
+function fixtureLegalities() {
+    return {
+        commander: "legal" as const,
+        standard: "legal" as const,
+        pioneer: "legal" as const,
+        modern: "legal" as const,
+        legacy: "legal" as const,
+        vintage: "legal" as const,
+        pauper: "legal" as const
+    };
 }
 
 function rawOracleTag() {

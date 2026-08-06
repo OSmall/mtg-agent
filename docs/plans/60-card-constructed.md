@@ -300,6 +300,10 @@ Commander so that basic lands and Copy Limit Overrides are validated correctly.
 
 ## Agent Methodology
 
+Implementation status (6 August 2026): the first internal slice—Format model, reference imports, deterministic
+validation, persistence, Card Query, and rendering—is implemented with deterministic coverage. The methodology and
+public agent-integration slice has not begun; Tomekin remains publicly Commander-only.
+
 Adding deterministic format support is not enough to make the agent a strong 60-card deck builder. A later
 implementation slice must research authoritative and well-regarded articles, videos, and guides, then convert the stable
 findings into a dedicated methodology skill.

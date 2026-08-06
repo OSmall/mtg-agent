@@ -309,13 +309,13 @@ A Deck Candidate should include two separate deck assembly outputs:
 
 This split keeps the importable decklist broadly compatible while still helping the user physically assemble the deck from their Collection.
 
-For Commander/EDH Deck Candidates, the strict decklist block should use separate `Commander` and `Deck` sections:
+For Commander/EDH Deck Candidates, the strict decklist block should use separate `Commander` and `Mainboard` sections:
 
 ```txt
 Commander
 1 Lathril, Blade of the Elves
 
-Deck
+Mainboard
 1 Sol Ring
 1 Llanowar Elves
 1 Elvish Mystic

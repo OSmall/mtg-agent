@@ -1,16 +1,17 @@
 import {err, ok, type Result} from "neverthrow";
 import {z} from "zod";
-import {draftDeckBuildingBrief, DraftDeckBuildingBriefInputSchema} from "./deck-building-brief";
-import {type CardQueryRepository, parseCardQueryInput} from "./card-query";
+import {CommanderDeckBuildingBriefSchema, draftDeckBuildingBrief} from "./deck-building-brief";
+import {type CardQueryInput, type CardQueryRepository, parseCardQueryInput} from "./card-query";
 import {type CardReferenceRepository, getFormatConstraints} from "./card-reference-queries";
 import type {CollectionQueryRepository} from "./collection-import";
 import {
-  type DeckCandidateRepository,
-  normalizeDeckCandidateForSave,
-  SaveDeckCandidateInputSchema
+    type DeckCandidateRepository,
+    normalizeDeckCandidateForSave,
+    SaveDeckCandidateInputSchema
 } from "./deck-candidate";
 import {renderDeckCandidateMarkdown, renderPortableDecklist} from "./deck-candidate-rendering";
 import {type CommanderDeckCard, validateCommanderDeck} from "./commander-legality";
+import type {ScryfallBulkDataType} from "./scryfall-sync";
 
 export const AgentToolNameSchema = z.enum([
   "draft_deck_building_brief",
@@ -33,9 +34,43 @@ export type AgentToolName = z.infer<typeof AgentToolNameSchema>;
 export const GetCardIdentityArgsSchema = z.object({idOrName: z.string().min(1)});
 export const SearchCardIdentityTagsArgsSchema = z.object({query: z.string().optional(), limit: z.number().int().positive().max(100).optional()});
 export const ResolveDecklistCardsArgsSchema = z.object({names: z.array(z.string().min(1)).min(1)});
-export const ValidateDeckCandidateArgsSchema = z.object({cards: z.array(z.object({cardIdentityId: z.uuid(), quantity: z.number().int().positive(), section: z.enum(["commander", "deck"])})).min(1), brief: z.unknown().optional()});
-export const RenderDeckCandidateArgsSchema = z.object({label: z.string().min(1), cards: z.array(z.object({cardIdentityId: z.uuid(), cardName: z.string().min(1), quantity: z.number().int().positive(), section: z.enum(["commander", "deck"]), sortOrder: z.number().int().nonnegative().default(0), note: z.string().nullable().default(null)})).min(1), sections: z.record(z.string(), z.string()).optional()});
-export const SaveDeckCandidateArgsSchema = SaveDeckCandidateInputSchema;
+export const ValidateDeckCandidateArgsSchema = z.object({
+    cards: z.array(z.object({
+        cardIdentityId: z.uuid(),
+        quantity: z.number().int().positive(),
+        section: z.enum(["commander", "mainboard"])
+    })).min(1), brief: z.unknown().optional()
+});
+export const RenderDeckCandidateArgsSchema = z.object({
+    label: z.string().min(1),
+    cards: z.array(z.object({
+        cardIdentityId: z.uuid(),
+        cardName: z.string().min(1),
+        quantity: z.number().int().positive(),
+        section: z.enum(["commander", "mainboard"]),
+        sortOrder: z.number().int().nonnegative().default(0),
+        note: z.string().nullable().default(null)
+    })).min(1),
+    sections: z.record(z.string(), z.string()).optional()
+});
+export const SaveDeckCandidateArgsSchema = SaveDeckCandidateInputSchema.superRefine((candidate, context) => {
+    if (candidate.brief.format !== "commander") {
+        context.addIssue({
+            code: "custom",
+            path: ["brief", "format"],
+            message: "The current public agent workflow supports Commander only.",
+        });
+    }
+    candidate.cards.forEach((card, index) => {
+        if (card.section === "sideboard") {
+            context.addIssue({
+                code: "custom",
+                path: ["cards", index, "section"],
+                message: "The current public Commander workflow does not accept a Sideboard.",
+            });
+        }
+    });
+});
 export const GetDeckCandidateArgsSchema = z.object({id: z.uuid()});
 export type AgentToolRepositories = {
   readonly cardReference: CardReferenceRepository;
@@ -44,34 +79,56 @@ export type AgentToolRepositories = {
   readonly collection: CollectionQueryRepository;
 };
 
-export type AgentToolError = {readonly type: "validation_error" | "tool_error"; readonly message: string};
+export type AgentToolError =
+    | { readonly type: "validation_error" | "tool_error"; readonly message: string }
+    | {
+    readonly type: "reference_data_unready";
+    readonly message: string;
+    readonly missingBulkDataTypes: readonly ScryfallBulkDataType[];
+    readonly reimportRequiredBulkDataTypes: readonly ScryfallBulkDataType[];
+};
 
 export function createAgentToolHandlers(repositories: AgentToolRepositories) {
   return {
-    queryCards(input: unknown) {
+      async queryCards(input: unknown) {
       const parsed = parseCardQueryInput(input);
-      if (parsed.isErr()) return Promise.resolve(parsed);
+          if (parsed.isErr()) return parsed;
+          if (!isCommanderAgentCardQuery(parsed.value)) {
+              return err({
+                  type: "validation_error",
+                  message: "The current public agent workflow supports Commander legality queries only.",
+              } as const);
+          }
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
       return repositories.cardQuery.queryCards(parsed.value);
     },
     draftDeckBuildingBrief(input: unknown) {
-      return safeSync(() => draftDeckBuildingBrief(DraftDeckBuildingBriefInputSchema.parse(input)));
+        return safeSync(() => draftDeckBuildingBrief(CommanderDeckBuildingBriefSchema.parse(input)));
     },
-    getCardIdentity(input: unknown) {
+      async getCardIdentity(input: unknown) {
       const args = GetCardIdentityArgsSchema.parse(input);
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
       return repositories.cardReference.getCardIdentity(args.idOrName);
     },
-    searchCardIdentityTags(input: unknown) {
-      return repositories.cardReference.searchCardIdentityTags(SearchCardIdentityTagsArgsSchema.parse(input));
+      async searchCardIdentityTags(input: unknown) {
+          const args = SearchCardIdentityTagsArgsSchema.parse(input);
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
+          return repositories.cardReference.searchCardIdentityTags(args);
     },
     summarizeReferenceSupport() {
       return repositories.cardReference.summarizeReferenceSupport();
     },
     getFormatConstraints(input: unknown) {
-      const format = z.object({format: z.string().default("commander")}).parse(input ?? {}).format;
+        const format = z.object({format: z.literal("commander")}).parse(input ?? {}).format;
       return Promise.resolve(getFormatConstraints(format));
     },
     async resolveDecklistCards(input: unknown) {
       const args = ResolveDecklistCardsArgsSchema.parse(input);
+        const ready = await requireReferenceData(repositories.cardReference);
+        if (ready.isErr()) return ready;
       const resolved = [];
       const unresolved = [];
       for (const name of args.names) {
@@ -95,7 +152,7 @@ export function createAgentToolHandlers(repositories: AgentToolRepositories) {
       const gameChangers = rows.value.filter((row) => row.card.gameChanger).map((row) => row.card.name);
       const landCount = rows.value.filter((row) => /\bLand\b/i.test(row.card.typeLine)).reduce((sum, row) => sum + row.quantity, 0);
       const manaCurve = rows.value.reduce<Record<string, number>>((curve, row) => {
-        if (row.section === "deck" && !/\bLand\b/i.test(row.card.typeLine)) curve[String(row.card.manaValue)] = (curve[String(row.card.manaValue)] ?? 0) + row.quantity;
+          if (row.section === "mainboard" && !/\bLand\b/i.test(row.card.typeLine)) curve[String(row.card.manaValue)] = (curve[String(row.card.manaValue)] ?? 0) + row.quantity;
         return curve;
       }, {});
       return ok({
@@ -107,10 +164,16 @@ export function createAgentToolHandlers(repositories: AgentToolRepositories) {
     },
     renderDeckCandidate(input: unknown) {
       const args = RenderDeckCandidateArgsSchema.parse(input);
-      return safeSync(() => ({markdown: renderDeckCandidateMarkdown(args), portableDecklist: renderPortableDecklist(args.cards)}));
+        return safeSync(() => ({
+            markdown: renderDeckCandidateMarkdown({...args, format: "commander"}),
+            portableDecklist: renderPortableDecklist("commander", args.cards)
+        }));
     },
-    saveDeckCandidate(input: unknown) {
-      return repositories.deckCandidates.saveDeckCandidate(normalizeDeckCandidateForSave(SaveDeckCandidateArgsSchema.parse(input)));
+      async saveDeckCandidate(input: unknown) {
+          const candidate = normalizeDeckCandidateForSave(SaveDeckCandidateArgsSchema.parse(input));
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
+          return repositories.deckCandidates.saveDeckCandidate(candidate);
     },
     getDeckCandidate(input: unknown) {
       const args = GetDeckCandidateArgsSchema.parse(input);
@@ -125,7 +188,13 @@ export function createAgentToolHandlers(repositories: AgentToolRepositories) {
   };
 }
 
-async function rowsWithDetails(repositories: AgentToolRepositories, cards: readonly {cardIdentityId: string; quantity: number; section: "commander" | "deck"}[]): Promise<Result<readonly CommanderDeckCard[], AgentToolError>> {
+async function rowsWithDetails(repositories: AgentToolRepositories, cards: readonly {
+    cardIdentityId: string;
+    quantity: number;
+    section: "commander" | "mainboard"
+}[]): Promise<Result<readonly CommanderDeckCard[], AgentToolError>> {
+    const ready = await requireReferenceData(repositories.cardReference);
+    if (ready.isErr()) return err(ready.error);
   const details = await repositories.cardReference.listCardIdentitiesByIds(cards.map((card) => card.cardIdentityId));
   if (details.isErr()) return err({type: "tool_error", message: details.error.message});
   return ok(cards.map((card) => {
@@ -133,6 +202,41 @@ async function rowsWithDetails(repositories: AgentToolRepositories, cards: reado
     if (!detail) throw new Error(`Missing Card Identity detail: ${card.cardIdentityId}`);
     return {card: detail.identity, quantity: card.quantity, section: card.section, legalities: detail.legalities, parts: detail.parts};
   }));
+}
+
+async function requireReferenceData(cardReference: CardReferenceRepository): Promise<Result<true, AgentToolError>> {
+    const support = await cardReference.summarizeReferenceSupport();
+    if (support.isErr()) return err({type: "tool_error", message: support.error.message});
+    if (support.value.ready) return ok(true);
+    const missing = support.value.missing;
+    const reimportRequired = support.value.reimportRequired;
+    const requirements = [
+        missing.length > 0 ? `missing: ${missing.join(", ")}` : null,
+        reimportRequired.length > 0 ? `reimport required: ${reimportRequired.join(", ")}` : null,
+    ].filter((requirement): requirement is string => requirement !== null);
+    return err({
+        type: "reference_data_unready",
+        message: `Scryfall reference data is not ready (${requirements.join("; ")}).`,
+        missingBulkDataTypes: missing,
+        reimportRequiredBulkDataTypes: reimportRequired,
+    });
+}
+
+function isCommanderAgentCardQuery(input: CardQueryInput): boolean {
+    if (input.include?.legalities?.some((format) => format !== "commander")) return false;
+    return !containsNonCommanderLegalityProperty(input.filter);
+}
+
+function containsNonCommanderLegalityProperty(value: unknown): boolean {
+    if (Array.isArray(value)) return value.some(containsNonCommanderLegalityProperty);
+    if (typeof value !== "object" || value === null) return false;
+    const record = value as Readonly<Record<string, unknown>>;
+    if (
+        typeof record.property === "string"
+        && record.property.startsWith("legality.")
+        && record.property !== "legality.commander"
+    ) return true;
+    return Object.values(record).some(containsNonCommanderLegalityProperty);
 }
 
 function safeSync<T>(fn: () => T): Result<T, AgentToolError> {

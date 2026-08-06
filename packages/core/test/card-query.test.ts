@@ -2,6 +2,17 @@ import {describe, expect, test} from "bun:test";
 import {parseCardQueryInput} from "@tomekin/core";
 
 describe("Card Query validation", () => {
+    test("accepts every supported Scryfall-backed legality and rejects Casual 60", () => {
+        expect(parseCardQueryInput({
+            filter: {op: "=", args: [{property: "legality.modern"}, "legal"]},
+            include: {legalities: ["commander", "standard", "pioneer", "modern", "legacy", "vintage", "pauper"]},
+        }).isOk()).toBe(true);
+
+        const casual = parseCardQueryInput({
+            filter: {op: "=", args: [{property: "legality.casual_60"}, "legal"]},
+        });
+        expect(casual.isErr()).toBe(true);
+    });
     test("accepts omitted envelope fields and empty include objects", () => {
         expect(parseCardQueryInput({}).isOk()).toBe(true);
         expect(parseCardQueryInput({include: {}}).isOk()).toBe(true);
@@ -252,7 +263,7 @@ describe("Card Query validation", () => {
             expect.objectContaining({
                 pointer: "#/include/legalities/0",
                 code: "invalid_value",
-                allowedValues: ["commander"]
+                allowedValues: ["commander", "standard", "pioneer", "modern", "legacy", "vintage", "pauper"]
             }),
             expect.objectContaining({
                 pointer: "#/sortby/0/property",

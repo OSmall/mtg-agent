@@ -22,7 +22,13 @@
   ],
   "game_changer": false,
   "legalities": {
-    "commander": "not_legal"
+    "commander": "not_legal",
+    "standard": "not_legal",
+    "pioneer": "not_legal",
+    "modern": "not_legal",
+    "legacy": "not_legal",
+    "vintage": "not_legal",
+    "pauper": "not_legal"
   },
   "scryfall_uri": "https://scryfall.com/card/unf/26/sole-performer"
 }

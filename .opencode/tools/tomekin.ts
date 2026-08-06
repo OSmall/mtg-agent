@@ -1,12 +1,6 @@
 import {tool} from "@opencode-ai/plugin";
 import {z} from "zod";
-import {
-  createRootLogger,
-  type LogComponent,
-  type Logger,
-  resolveLogConfigFromEnv,
-  serializeError
-} from "@tomekin/core";
+import {createRootLogger, type LogComponent, type Logger, resolveLogConfigFromEnv, serializeError} from "@tomekin/core";
 import {createLocalAgentToolHandlers, type LocalRuntimeOptions, resultToOpencodeOutput} from "@tomekin/opencode";
 
 const cardQuerySortablePropertyValues = ["identity.id", "identity.name", "identity.manaValue", "identity.colorIdentity", "identity.edhrecRank", "collection.quantity"] as const;
@@ -14,7 +8,7 @@ const cardQuerySortablePropertyValues = ["identity.id", "identity.name", "identi
 const cardRowSchema = z.object({
   cardIdentityId: z.uuid(),
   quantity: z.number().int().positive(),
-  section: z.enum(["commander", "deck"]),
+    section: z.enum(["commander", "mainboard"]),
 });
 
 const renderCardRowSchema = cardRowSchema.extend({
@@ -25,18 +19,18 @@ const renderCardRowSchema = cardRowSchema.extend({
 
 const briefSchema = z.object({
   goal: z.string().min(1),
-  format: z.enum(["commander"]).default("commander"),
+    format: z.literal("commander"),
   formatAnchor: z.string().min(1).nullable().default(null),
   playExperience: z.string().min(1).default("Synergistic, varied, expressive, and fair-feeling."),
-  commanderBracket: z.string().min(1).nullable().default(null),
+    commanderBracket: z.string().min(1).nullable(),
   budget: z.string().min(1).nullable().default(null),
   missingCardTolerance: z.string().min(1).default("Moderate; check the imported Collection before treating cards as Missing Cards."),
   comboTolerance: z.string().min(1).default("Avoid deterministic combo wins unless explicitly requested."),
   constraints: z.array(z.string().min(1)).default([]),
   exclusions: z.array(z.string().min(1)).default([]),
   assumptions: z.array(z.string().min(1)).default([]),
-  ruleZeroExceptions: z.array(z.string().min(1)).default([]),
-});
+    ruleZeroExceptions: z.array(z.string().min(1)),
+}).strict();
 
 const saveCardRowSchema = cardRowSchema.extend({
   sortOrder: z.number().int().nonnegative().default(0),
@@ -101,7 +95,7 @@ function elapsedMs(startedAtMs: number): number {
 
 export const draft_deck_building_brief = tool({
   description: "Normalize a proposed Commander Deck Building Brief and return assumptions that require user confirmation.",
-  args: {brief: briefSchema.partial({goal: true}).extend({goal: z.string().min(1)})},
+    args: {brief: briefSchema},
   async execute(args) {
     return runTool("draft_deck_building_brief", args, (handlers) => handlers.draftDeckBuildingBrief(args.brief));
   },
@@ -184,7 +178,7 @@ export const evaluate_deck_candidate = tool({
 });
 
 export const render_deck_candidate = tool({
-  description: "Render stable Deck Candidate Markdown and a strict Commander/Deck Portable Decklist from resolved cards.",
+    description: "Render stable Deck Candidate Markdown and a strict Commander/Mainboard Portable Decklist from resolved cards.",
   args: {
     label: z.string().min(1),
     cards: z.array(renderCardRowSchema).min(1),
@@ -200,9 +194,7 @@ export const save_deck_candidate = tool({
   args: {
     id: z.uuid().optional().describe("Existing Deck Candidate ID to update in place. Omit only when creating a new candidate."),
     label: z.string().min(1),
-    format: z.enum(["commander"]).default("commander"),
     formatAnchor: z.string().min(1).nullable().default(null),
-    commanderBracket: z.string().min(1).nullable().default(null),
     brief: briefSchema,
     collectionImportTimestamp: jsonDateTimeSchema.nullable().default(null),
     markdown: z.string().min(1),

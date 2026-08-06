@@ -1,10 +1,8 @@
 import {sql} from "drizzle-orm";
 import {check, index, integer, primaryKey, real, sqliteTable, text, unique,} from "drizzle-orm/sqlite-core";
-import {
-    cardIdentityTaggingWeightValues,
-    colorIdentityValues,
-    formatLegalityValues,
-} from "@tomekin/core/scryfall-sync";
+import {cardIdentityTaggingWeightValues, colorIdentityValues, formatLegalityValues,} from "@tomekin/core/scryfall-sync";
+import {deckFormatValues} from "@tomekin/core/deck-building-brief";
+import {deckCandidateCardSectionValues} from "@tomekin/core/deck-candidate";
 
 export const collectionImport = sqliteTable("collection_import", {
   id: text("id").primaryKey(),
@@ -83,9 +81,8 @@ export const deckCandidate = sqliteTable(
     {
         id: text("id").primaryKey(),
         label: text("label").notNull(),
-        format: text("format", {enum: ["commander"]}).notNull(),
+        format: text("format", {enum: deckFormatValues}).notNull(),
         formatAnchor: text("format_anchor"),
-        commanderBracket: text("commander_bracket"),
         briefJson: text("brief_json", {mode: "json"}).notNull(),
         collectionImportTimestamp: integer("collection_import_timestamp", {mode: "timestamp"}),
         markdown: text("markdown").notNull(),
@@ -94,7 +91,7 @@ export const deckCandidate = sqliteTable(
     },
     (table) => [
         check("deck_candidate_label_check", sql`length(${table.label}) > 0`),
-        check("deck_candidate_format_check", sql`${table.format} IN ('commander')`),
+        check("deck_candidate_format_check", sql`${table.format} IN ('commander', 'standard', 'pioneer', 'modern', 'legacy', 'vintage', 'pauper', 'casual_60')`),
     ],
 );
 
@@ -109,13 +106,13 @@ export const deckCandidateCard = sqliteTable(
             .notNull()
             .references(() => cardIdentity.id),
         quantity: integer("quantity").notNull(),
-        section: text("section", {enum: ["commander", "deck"]}).notNull(),
+        section: text("section", {enum: deckCandidateCardSectionValues}).notNull(),
         sortOrder: integer("sort_order").notNull(),
         note: text("note"),
     },
     (table) => [
         check("deck_candidate_card_quantity_check", sql`${table.quantity} > 0`),
-        check("deck_candidate_card_section_check", sql`${table.section} IN ('commander', 'deck')`),
+        check("deck_candidate_card_section_check", sql`${table.section} IN ('commander', 'mainboard', 'sideboard')`),
         index("idx_deck_candidate_card_deck_candidate_id").on(table.deckCandidateId),
         index("idx_deck_candidate_card_card_identity_id").on(table.cardIdentityId),
     ],
@@ -128,6 +125,7 @@ export const scryfallBulkDataImport = sqliteTable(
         bulkDataType: text("bulk_data_type", {
             enum: ["oracle_cards", "all_cards", "oracle_tags"],
         }).notNull(),
+        importContractRevision: integer("import_contract_revision").notNull(),
         status: text("status", {enum: ["succeeded", "failed"]}).notNull(),
         startedAt: integer("started_at", {mode: "timestamp"}).notNull(),
         completedAt: integer("completed_at", {mode: "timestamp"}),
@@ -163,6 +161,8 @@ export const cardIdentity = sqliteTable(
         manaValue: real("mana_value").notNull(),
         typeLine: text("type_line").notNull(),
         oracleText: text("oracle_text"),
+        copyLimitOverrideKind: text("copy_limit_override_kind", {enum: ["none", "unlimited", "maximum"]}).notNull(),
+        copyLimitOverrideMaximum: integer("copy_limit_override_maximum"),
         colorIdentity: text("color_identity", {enum: colorIdentityValues})
             .notNull()
             .default(""),
@@ -182,6 +182,10 @@ export const cardIdentity = sqliteTable(
         check(
             "card_identity_color_identity_check",
             sql`color_identity IN ('', 'W', 'U', 'B', 'R', 'G', 'WU', 'WB', 'WR', 'WG', 'UB', 'UR', 'UG', 'BR', 'BG', 'RG', 'WUB', 'WUR', 'WUG', 'WBR', 'WBG', 'WRG', 'UBR', 'UBG', 'URG', 'BRG', 'WUBR', 'WUBG', 'WURG', 'WBRG', 'UBRG', 'WUBRG')`,
+        ),
+        check(
+            "card_identity_copy_limit_override_check",
+            sql`(${table.copyLimitOverrideKind} = 'maximum' AND ${table.copyLimitOverrideMaximum} IS NOT NULL AND ${table.copyLimitOverrideMaximum} > 0) OR (${table.copyLimitOverrideKind} IN ('none', 'unlimited') AND ${table.copyLimitOverrideMaximum} IS NULL)`,
         ),
         index("idx_card_identity_color_identity").on(table.colorIdentity),
         index("idx_card_identity_name").on(table.name),
