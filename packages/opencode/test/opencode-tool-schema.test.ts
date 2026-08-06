@@ -28,6 +28,49 @@ describe("opencode tool schemas", () => {
         expect("list_collection_imports" in tomekinTools).toBe(false);
     });
 
+    test("exposes every supported Deck Format through repo-local tool schemas", () => {
+        const draft = tomekinTools.draft_deck_building_brief;
+        const constraints = tomekinTools.get_format_constraints;
+        expect(isToolDefinition(draft)).toBe(true);
+        expect(isToolDefinition(constraints)).toBe(true);
+        if (!isToolDefinition(draft) || !isToolDefinition(constraints)) throw new Error("expected tool definitions");
+
+        const schemas = JSON.stringify([
+            tool.schema.toJSONSchema(tool.schema.object(draft.args)),
+            tool.schema.toJSONSchema(tool.schema.object(constraints.args)),
+        ]);
+        for (const format of ["commander", "standard", "pioneer", "modern", "legacy", "vintage", "pauper", "casual_60"]) {
+            expect(schemas).toContain(format);
+        }
+    });
+
+    test("executes 60-card Constructed Brief drafting through the repo-local tool", async () => {
+        const dir = mkdtempSync(join(tmpdir(), "tomekin-opencode-modern-tool-"));
+        const dbPath = join(dir, "test.sqlite");
+        const log = createRootLogger(resolveLogConfigFromEnv({TOMEKIN_LOG_ENABLED: "false"}));
+        applySqliteMigrations(dbPath, {log});
+        const restoreRuntime = tomekinTools.configureAgentToolRuntimeForTests({
+            log,
+            createHandlers: (options) => createLocalAgentToolHandlers({...options, databasePath: dbPath}),
+        });
+        try {
+            const output = await tomekinTools.draft_deck_building_brief.execute({
+                brief: {
+                    goal: "Build Modern control.",
+                    format: "modern",
+                    powerLevel: "Competitive at the local store.",
+                },
+            });
+
+            expect(JSON.parse(output)).toMatchObject({
+                brief: {format: "modern", powerLevel: "Competitive at the local store."},
+                confirmationRequired: true,
+            });
+        } finally {
+            restoreRuntime();
+        }
+    });
+
     test("logs opencode tool invocation metadata", async () => {
         const dir = mkdtempSync(join(tmpdir(), "tomekin-opencode-log-"));
         const dbPath = join(dir, "test.sqlite");

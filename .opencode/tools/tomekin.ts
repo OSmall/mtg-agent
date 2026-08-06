@@ -4,11 +4,14 @@ import {createRootLogger, type LogComponent, type Logger, resolveLogConfigFromEn
 import {createLocalAgentToolHandlers, type LocalRuntimeOptions, resultToOpencodeOutput} from "@tomekin/opencode";
 
 const cardQuerySortablePropertyValues = ["identity.id", "identity.name", "identity.manaValue", "identity.colorIdentity", "identity.edhrecRank", "collection.quantity"] as const;
+const deckFormatValues = ["commander", "standard", "pioneer", "modern", "legacy", "vintage", "pauper", "casual_60"] as const;
+const sixtyCardConstructedFormatValues = ["standard", "pioneer", "modern", "legacy", "vintage", "pauper", "casual_60"] as const;
+const supportedScryfallFormatValues = ["commander", "standard", "pioneer", "modern", "legacy", "vintage", "pauper"] as const;
 
 const cardRowSchema = z.object({
   cardIdentityId: z.uuid(),
   quantity: z.number().int().positive(),
-    section: z.enum(["commander", "mainboard"]),
+    section: z.enum(["commander", "mainboard", "sideboard"]),
 });
 
 const renderCardRowSchema = cardRowSchema.extend({
@@ -17,20 +20,32 @@ const renderCardRowSchema = cardRowSchema.extend({
   note: z.string().nullable().default(null),
 });
 
-const briefSchema = z.object({
+const sharedBriefShape = {
   goal: z.string().min(1),
-    format: z.literal("commander"),
   formatAnchor: z.string().min(1).nullable().default(null),
   playExperience: z.string().min(1).default("Synergistic, varied, expressive, and fair-feeling."),
-    commanderBracket: z.string().min(1).nullable(),
   budget: z.string().min(1).nullable().default(null),
   missingCardTolerance: z.string().min(1).default("Moderate; check the imported Collection before treating cards as Missing Cards."),
   comboTolerance: z.string().min(1).default("Avoid deterministic combo wins unless explicitly requested."),
   constraints: z.array(z.string().min(1)).default([]),
   exclusions: z.array(z.string().min(1)).default([]),
   assumptions: z.array(z.string().min(1)).default([]),
+};
+
+const commanderBriefSchema = z.object({
+    ...sharedBriefShape,
+    format: z.literal("commander"),
+    commanderBracket: z.string().min(1).nullable(),
     ruleZeroExceptions: z.array(z.string().min(1)),
 }).strict();
+
+const sixtyCardConstructedBriefSchema = z.object({
+    ...sharedBriefShape,
+    format: z.enum(sixtyCardConstructedFormatValues),
+    powerLevel: z.string().min(1).nullable(),
+}).strict();
+
+const briefSchema = z.discriminatedUnion("format", [commanderBriefSchema, sixtyCardConstructedBriefSchema]);
 
 const saveCardRowSchema = cardRowSchema.extend({
   sortOrder: z.number().int().nonnegative().default(0),
@@ -94,7 +109,7 @@ function elapsedMs(startedAtMs: number): number {
 }
 
 export const draft_deck_building_brief = tool({
-  description: "Normalize a proposed Commander Deck Building Brief and return assumptions that require user confirmation.",
+    description: "Normalize a proposed Format-specific Deck Building Brief and return assumptions that require user confirmation.",
     args: {brief: briefSchema},
   async execute(args) {
     return runTool("draft_deck_building_brief", args, (handlers) => handlers.draftDeckBuildingBrief(args.brief));
@@ -102,7 +117,7 @@ export const draft_deck_building_brief = tool({
 });
 
 export const query_cards = tool({
-  description: "Run a structured Card Query over local Card Identities, Commander legality, Card Identity Tags, and imported Collection card rows. For filter syntax and examples, load the query-cards skill before composing non-trivial filters or after validation errors.",
+    description: "Run a structured Card Query over local Card Identities, supported sanctioned Format legality, Card Identity Tags, and imported Collection card rows. For filter syntax and examples, load the query-cards skill before composing non-trivial filters or after validation errors.",
   args: {
     filter: z.unknown().optional(),
     sortby: z.array(z.object({
@@ -110,7 +125,7 @@ export const query_cards = tool({
       direction: z.enum(["asc", "desc"])
     }).strict()).optional(),
     include: z.object({
-      legalities: z.array(z.enum(["commander"])).optional(),
+        legalities: z.array(z.enum(supportedScryfallFormatValues)).optional(),
       tags: z.boolean().optional(),
       collectionCards: z.boolean().optional(),
     }).strict().optional(),
@@ -122,7 +137,7 @@ export const query_cards = tool({
 });
 
 export const get_card_identity = tool({
-  description: "Get one local Card Identity with parts, Commander legality rows, tags, EDHREC rank, Game Changer flag, and source URI.",
+    description: "Get one local Card Identity with parts, Format legality rows, tags, EDHREC rank, Game Changer flag, and source URI.",
   args: {idOrName: z.string().min(1)},
   async execute(args) {
     return runTool("get_card_identity", args, (handlers) => handlers.getCardIdentity(args));
@@ -146,8 +161,8 @@ export const summarize_reference_support = tool({
 });
 
 export const get_format_constraints = tool({
-  description: "Return deterministic Commander construction constraints and supported local validation mechanics.",
-  args: {format: z.enum(["commander"]).default("commander")},
+    description: "Return deterministic construction constraints and supported local validation mechanics for a Deck Format.",
+    args: {format: z.enum(deckFormatValues)},
   async execute(args) {
     return runTool("get_format_constraints", args, (handlers) => handlers.getFormatConstraints(args));
   },
@@ -162,25 +177,26 @@ export const resolve_decklist_cards = tool({
 });
 
 export const validate_format_legality = tool({
-  description: "Validate deterministic Commander deck construction checks over resolved Card Identity IDs.",
-  args: {cards: z.array(cardRowSchema).min(1), brief: briefSchema.optional()},
+    description: "Validate deterministic Format deck construction checks over resolved Card Identity IDs using the authoritative Deck Building Brief Format.",
+    args: {cards: z.array(cardRowSchema).min(1), brief: briefSchema},
   async execute(args) {
     return runTool("validate_format_legality", args, (handlers) => handlers.validateFormatLegality(args));
   },
 });
 
 export const evaluate_deck_candidate = tool({
-  description: "Return an aggregate review with legality, Game Changers, mana curve, and land count. Use Collection tools separately for owned-card evidence.",
-  args: {cards: z.array(cardRowSchema).min(1), brief: briefSchema.optional()},
+    description: "Return a Format-aware aggregate review with legality, power/play-experience context, mana curve, and land count. Use Card Query separately for owned-card evidence.",
+    args: {cards: z.array(cardRowSchema).min(1), brief: briefSchema},
   async execute(args) {
     return runTool("evaluate_deck_candidate", args, (handlers) => handlers.evaluateDeckCandidate(args));
   },
 });
 
 export const render_deck_candidate = tool({
-    description: "Render stable Deck Candidate Markdown and a strict Commander/Mainboard Portable Decklist from resolved cards.",
+    description: "Render stable Deck Candidate Markdown and a strict Format-aware Portable Decklist from resolved cards.",
   args: {
     label: z.string().min(1),
+      format: z.enum(deckFormatValues),
     cards: z.array(renderCardRowSchema).min(1),
     sections: z.record(z.string(), z.string()).optional(),
   },
@@ -190,7 +206,7 @@ export const render_deck_candidate = tool({
 });
 
 export const save_deck_candidate = tool({
-  description: "Persist a final Commander Deck Candidate and its resolved Card Identity rows. Pass an existing Deck Candidate ID to update it in place; omit the ID only to create a new candidate.",
+    description: "Persist a final Deck Candidate and its resolved Card Identity rows, deriving Format from its authoritative Brief. Pass an existing Deck Candidate ID to update it in place; omit the ID only to create a new candidate.",
   args: {
     id: z.uuid().optional().describe("Existing Deck Candidate ID to update in place. Omit only when creating a new candidate."),
     label: z.string().min(1),

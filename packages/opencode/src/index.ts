@@ -55,8 +55,15 @@ export function createLocalAgentToolHandlers(options: LocalRuntimeOptions): Loca
   };
 }
 
-export function resultToOpencodeOutput<T>(result: {isOk(): boolean; isErr(): boolean; value?: T; error?: {readonly message: string; readonly type?: string}}): string {
+export function resultToOpencodeOutput<T>(result: {
+    isOk(): boolean;
+    isErr(): boolean;
+    value?: T;
+    error?: { readonly message: string; readonly type?: string; readonly [key: string]: unknown };
+}): string {
   if (result.isOk()) return JSON.stringify(result.value, null, 2);
   const error = result.error;
-  return JSON.stringify({error: error?.type ?? "error", message: error?.message ?? "Unknown tool error."}, null, 2);
+    if (!error) return JSON.stringify({error: "error", message: "Unknown tool error."}, null, 2);
+    const {type, ...details} = error;
+    return JSON.stringify({...details, error: type ?? "error"}, null, 2);
 }

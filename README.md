@@ -1,10 +1,10 @@
 # Tomekin
 
-Local, collection-first Commander deck-building through opencode.
+Local, collection-first MTG deck-building through opencode.
 
-This alpha helps you turn a ManaBox Collection export plus local Scryfall reference data into validated Commander Deck
-Candidates. It runs on your machine, stores data in local SQLite, and exposes deck-building actions through a project-local
-opencode agent and custom tools.
+This alpha helps you turn a ManaBox Collection export plus local Scryfall reference data into validated Commander/EDH
+and paper-first 60-card Constructed Deck Candidates. It runs on your machine, stores data in local SQLite, and exposes
+deck-building actions through a project-local opencode agent and custom tools.
 
 ## Project Status
 
@@ -38,7 +38,8 @@ opencode
 ```
 
 In opencode, select or invoke the local deck-building agent from `.opencode/agents/tomekin-deck-builder.md` and ask for a
-Commander deck. The agent uses project-local tools and does not make hidden live Scryfall calls during normal deck-building.
+Commander, Standard, Pioneer, Modern, Legacy, Vintage, Pauper, or Casual 60 deck. The agent uses project-local tools and
+does not make hidden live Scryfall or metagame calls during normal deck-building.
 
 Run `bun run db:sqlite:migration:apply` before normal app commands. It creates the parent directory for the configured
 SQLite database path and applies migrations from `packages/sqlite/drizzle/`.
@@ -133,18 +134,20 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
 - Local SQLite persistence for Scryfall reference data, Collection snapshots, and saved Deck Candidates.
 - Explicit Scryfall bulk sync for `oracle_cards`, `all_cards`, and `oracle_tags`.
 - ManaBox Collection CSV import with blocking validation and non-destructive failed imports.
-- Commander/EDH-focused opencode deck-building agent with deterministic local tools.
+- Format-aware opencode deck-building agent with deterministic local tools and researched 60-card construction guidance.
 - Commander Existing Deck tuning: review proposed additions, identify paired cuts, or diagnose open-ended improvements
   within an explicitly stated Addition Pool.
-- Card search, card identity lookup, Oracle Tag lookup, Commander legality validation, deck rendering, and Deck Candidate
-  persistence tools.
+- Card search, card identity lookup, Oracle Tag lookup, Format legality validation, deck rendering, and Deck Candidate
+  persistence tools for Commander/EDH and the supported 60-card Formats.
+- Optional 60-card Sideboards when requested, with matchup context or explicit general-purpose assumptions.
 - Structured local logging for CLI commands, SQLite queries, imports, sync, and opencode tool calls.
 
 ## Known Limitations
 
-- Commander/EDH is the only supported deck-building format in the current agent workflow.
 - Collection-aware deck-building depends on an imported ManaBox CSV snapshot; there is no collection write-back.
 - Normal deck-building is local/offline and will not fetch missing Scryfall data automatically.
+- Normal 60-card deck-building has no live metagame feed; Sideboard recommendations depend on user-supplied context or
+  clearly stated general-purpose assumptions.
 - No npm package, installer, hosted UI, or plugin marketplace packaging is provided in this alpha.
 - Prices, exhaustive combo detection, and live LLM evaluation are out of scope for the default local tools.
 - Deck-tuning recommendations are reasoned proposals, not deterministic optimality guarantees; prices and budgeted
@@ -175,6 +178,6 @@ bun run typecheck
 
 ## Future Direction
 
-Current post-MVP work includes broader Format support and continued improvement of Collection-aware deck building.
-Friendlier setup checks, packaging around stable commands, and additional interfaces over the same portable core remain
-future possibilities, not alpha promises.
+Current post-MVP work includes continued improvement of Collection-aware deck building and possible expansion beyond the
+currently supported Formats. Friendlier setup checks, packaging around stable commands, and additional interfaces over
+the same portable core remain future possibilities, not alpha promises.

@@ -6,9 +6,8 @@ description: Use when composing, fixing, or explaining filters for the `query_ca
 # Query Cards
 
 Use this reference for the `query_cards` tool. Card Query is structured card retrieval over local Card Identity,
-Commander legality, Card Identity Tags, and imported Collection rows. It is not SQL and does not accept arbitrary
-property
-paths.
+supported sanctioned Format legality, Card Identity Tags, and imported Collection rows. It is not SQL and does not
+accept arbitrary property paths.
 
 ## Envelope
 
@@ -63,6 +62,12 @@ Card Identity and reference queryables:
 - `identity.gameChanger`
 - `identity.edhrecRank`
 - `legality.commander`
+- `legality.standard`
+- `legality.pioneer`
+- `legality.modern`
+- `legality.legacy`
+- `legality.vintage`
+- `legality.pauper`
 - `tag.id`
 - `tag.slug`
 - `tag.label`
@@ -105,7 +110,9 @@ Sortable properties:
 - Tag weights are exact enum values: `very_strong`, `strong`, `median`, and `weak`. Use `=` or `in`; ranked comparisons
   such as `tag.weight >= "strong"` are not supported.
 - `!=` is rejected for `collection.*` and `tag.*` predicates.
-- `legality.commander` values include `legal`, `not_legal`, `banned`, and `restricted`.
+- Every supported `legality.*` property uses the exact values `legal`, `not_legal`, `banned`, and `restricted`.
+- `legality.casual_60` is invalid because Casual 60 deliberately bypasses Scryfall legality. Other retained Scryfall
+  Format properties are also outside the public Card Query vocabulary.
 - Color Identity values are exact WUBRG strings such as `""`, `"G"`, `"UG"`, or `"WUBRG"`.
 
 Inside `withTagging`, only these are allowed:
@@ -150,7 +157,9 @@ this location.”
 
 `include` changes projection only; it does not constrain matching.
 
-- `legalities: ["commander"]` includes Commander legality in results.
+- `legalities` accepts `commander`, `standard`, `pioneer`, `modern`, `legacy`, `vintage`, and `pauper`. It includes the
+  requested Scryfall legality rows in results without filtering cards.
+- `legalities: ["casual_60"]` is invalid because Casual 60 has no Scryfall legality check.
 - `tags: true` includes direct and inherited Card Identity Tag summaries.
 - `collectionCards: true` includes compact owned Collection Card rows. If Collection predicates are present, these are
   the rows that matched the Collection branch.

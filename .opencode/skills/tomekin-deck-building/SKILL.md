@@ -20,7 +20,8 @@ tool lifecycle. Format-specific construction and tuning methodology belongs in f
    staples. Load the `query-cards` skill before composing non-trivial `query_cards` filters or after validation errors.
 6. Resolve proposed final names with `resolve_decklist_cards` before validation or persistence.
 7. Validate deterministic format construction with `validate_format_legality`.
-8. Run `evaluate_deck_candidate` for aggregate legality, Game Changer, mana curve, land count, and Collection evidence.
+8. Run `evaluate_deck_candidate` for aggregate legality, Format-appropriate power context, mana curve, Mainboard land
+   count, and Collection caveats.
 9. Revise weak areas for up to three full evaluation passes.
 10. Render Markdown and Portable Decklist with `render_deck_candidate`.
 11. Save the final candidate with `save_deck_candidate` only after final cards resolve cleanly and caveats are
@@ -31,10 +32,12 @@ tool lifecycle. Format-specific construction and tuning methodology belongs in f
 
 - For Commander/EDH, load `commander-deck-architecture` after the Deck Building Brief confirms `format: commander` or an
   equivalent Commander/EDH intent.
+- For Standard, Pioneer, Modern, Legacy, Vintage, Pauper, or Casual 60, load
+  `sixty-card-constructed-deck-architecture` after the Deck Building Brief confirms the exact Format.
 - For a confirmed Commander Existing Deck or Deck Candidate request involving additions, cuts, swaps, upgrades, or
   improvement, load `commander-deck-tuning`. It determines whether a concise tuning context is enough for a candidate
   review or an open review needs a confirmed tuning brief and explicit Addition Pool.
-- If the requested format is unsupported by local tools or no methodology skill exists, say so directly and ask whether
+- If the requested Format is unsupported by local tools or no methodology skill exists, say so directly and ask whether
   the user wants a best-effort unsupported build.
 - Do not duplicate format-specific construction or tuning heuristics here. Keep Commander role-density targets, tag
   snowballing, mana-base heuristics, and win-path methodology in `commander-deck-architecture`; keep change proposals,
@@ -44,7 +47,8 @@ Deck-building quality bar:
 
 - State a clear game plan and expected play experience.
 - Include enough enablers, payoffs, mana support, interaction, card advantage, and resilience for the confirmed brief.
-- Use Commander Brackets and Game Changer counts for power language rather than a custom 1-10 scale.
+- Use Commander Brackets and Game Changer counts for Commander power language. Use the Brief's Format-relative Power
+  Level and expected play context for 60-card Constructed; do not translate it into Commander terms.
 - Treat local Oracle Tags as useful source-backed evidence, not infallible truth.
 - Use direct and Inherited Card Identity Tags as first-class package-discovery evidence; follow the format methodology
   skill for tag interpretation.

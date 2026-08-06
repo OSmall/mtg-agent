@@ -32,7 +32,7 @@ describe("Deck Candidate", () => {
         } as never)).toThrow();
     });
 
-    test("keeps the public agent save contract Commander-only", () => {
+    test("exposes 60-card Constructed through the public agent save contract", () => {
         expect(SaveDeckCandidateArgsSchema.safeParse({
             label: "Modern Prowess",
             formatAnchor: "Prowess",
@@ -43,11 +43,18 @@ describe("Deck Candidate", () => {
             },
             collectionImportTimestamp: null,
             markdown: "# Modern Prowess",
-            cards: [{
-                cardIdentityId: "11111111-1111-4111-8111-111111111111",
-                quantity: 4,
-                section: "mainboard",
-            }],
-        }).success).toBe(false);
+            cards: [
+                {
+                    cardIdentityId: "11111111-1111-4111-8111-111111111111",
+                    quantity: 4,
+                    section: "mainboard",
+                },
+                {
+                    cardIdentityId: "22222222-2222-4222-8222-222222222222",
+                    quantity: 2,
+                    section: "sideboard",
+                },
+            ],
+        }).success).toBe(true);
     });
 });

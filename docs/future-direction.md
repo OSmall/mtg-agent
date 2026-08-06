@@ -15,7 +15,7 @@ More specialised import/export formats may be needed later for exact collection 
 
 ## Adjacent Card Groups
 
-Sideboards are part of the planned 60-card Constructed expansion when the user requests one. Maybeboards, considering
+The supported 60-card Constructed workflow can build a Sideboard when the user requests one. Maybeboards, considering
 boards, upgrade boards, and budget alternative boards remain separate future scope.
 
 The MVP Portable Decklist should remain final-deck-only. Future work may introduce separate structures for adjacent card groups without polluting the importable decklist.
@@ -87,14 +87,14 @@ the added machinery produces reliable decisions.
 
 ## Format Expansion
 
-The MVP emphasises Commander/EDH while preserving a path to other formats.
+Tomekin supports Commander/EDH and the paper-first 60-card Constructed family: Standard, Pioneer, Modern, Legacy,
+Vintage, Pauper, and Casual 60. The 60-card workflow includes Format-specific construction and legality, optional
+requested Sideboards, and a researched agent methodology for building cohesive decks. Detailed settled scope and
+implementation history are recorded in [`plans/60-card-constructed.md`](./plans/60-card-constructed.md).
 
-The next planned expansion is paper-first 60-card Constructed support for Standard, Pioneer, Modern, Legacy, Vintage,
-Pauper, and Casual 60. It includes format-specific deck construction and legality, optional Sideboards, and a researched
-agent methodology for building cohesive 60-card decks. Detailed settled scope, exclusions, observed gaps, and remaining
-questions are recorded in [`plans/60-card-constructed.md`](./plans/60-card-constructed.md).
-
-Project language and requirements should remain format-extensible so later work can support other MTG formats without rewriting the product concept.
+Project language and requirements should remain Format-extensible so later work can support other MTG Formats without
+rewriting the product concept. Additional Formats, Arena-first workflows, and live metagame services remain future work
+unless separately promoted into scope.
 
 ## Protected Collection Metadata
 

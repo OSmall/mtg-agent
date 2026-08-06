@@ -300,18 +300,19 @@ Commander so that basic lands and Copy Limit Overrides are validated correctly.
 
 ## Agent Methodology
 
-Implementation status (6 August 2026): the first internal slice—Format model, reference imports, deterministic
-validation, persistence, Card Query, and rendering—is implemented with deterministic coverage. The methodology and
-public agent-integration slice has not begun; Tomekin remains publicly Commander-only.
+Implementation status (6 August 2026): both planned slices are implemented with deterministic coverage. The first slice
+delivered the Format model, reference imports, deterministic validation, persistence, Card Query, and rendering. The
+second delivered the researched methodology and public agent integration. The developer's manual live-agent release
+exercise remains an explicit release check rather than part of `bun test`.
 
-Adding deterministic format support is not enough to make the agent a strong 60-card deck builder. A later
-implementation slice must research authoritative and well-regarded articles, videos, and guides, then convert the stable
-findings into a dedicated methodology skill.
+Adding deterministic format support was not enough to make the agent a strong 60-card deck builder. Slice 2 researched
+authoritative and well-regarded guidance and converted stable findings into a dedicated methodology skill. The approved
+source manifest and implementation strategy are recorded in
+[`60-card-constructed-slice-2-strategy.md`](./60-card-constructed-slice-2-strategy.md).
 
-The feature should be delivered as at least two implementation slices: first the Format model, reference imports,
-deterministic validation, persistence, Card Query, and rendering; then the researched 60-card deck-building methodology
-and agent integration. The first slice may merge as internal capability, but Tomekin must remain publicly Commander-only
-and the feature must not be considered complete or advertised until both slices are delivered and tested.
+The feature was delivered as two implementation slices: first the Format model, reference imports, deterministic
+validation, persistence, Card Query, and rendering; then the researched 60-card deck-building methodology and agent
+integration. Public documentation was updated only after both slices were delivered and tested.
 
 The research should preserve broadly stable concepts such as consistency, mana curve, threat density, interaction,
 redundancy, card advantage, mana-base construction, and coherent win conditions. The methodology may explain why exactly

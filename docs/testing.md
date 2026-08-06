@@ -153,12 +153,15 @@ The default test suite should not call live LLMs.
 
 Test deterministic prompt inputs, retrieved context, service outputs, and rendered artifacts with normal tests. Live LLM evaluation should be explicit, separate from `bun test`, and used only when intentionally assessing model behaviour.
 
-LLM-produced recommendations should be treated as proposals until deterministic services validate card identity, Collection status, Availability, Portable Decklist format, and Commander legality where local data supports those checks. Failed validation should produce structured failures or revision requests.
+LLM-produced recommendations should be treated as proposals until deterministic services validate card identity,
+Collection status, Availability, Portable Decklist format, and Format legality where local data supports those checks.
+Failed validation should produce structured failures or revision requests.
 
-60-card Constructed slice-one coverage remains deterministic: strict Brief and candidate schemas, the supported Format
-matrix, Mainboard and Sideboard shape, cross-section copy limits and exceptions, sanctioned legality and Casual 60,
-Vintage restriction precedence, reference readiness, Card Query, exact Portable Decklists, and populated SQLite
-migration behavior. Live-agent methodology evaluation belongs to the later public integration slice.
+60-card Constructed coverage remains deterministic: strict Brief and candidate schemas, the supported Format matrix,
+Mainboard and Sideboard shape, cross-section copy limits and exceptions, sanctioned legality and Casual 60, Vintage
+restriction precedence, reference readiness, Card Query, exact Portable Decklists, persistence, public tool wrappers,
+and agent-routing configuration. The source-backed methodology is exercised manually before release; live-agent quality
+evaluation remains outside the default suite.
 
 ## Future Deck Tuning Scenario Evaluation
 

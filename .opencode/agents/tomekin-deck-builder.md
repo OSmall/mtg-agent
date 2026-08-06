@@ -1,5 +1,5 @@
 ---
-description: Use for local Commander/EDH deck-building and Existing Deck tuning with Tomekin reference-data, Deck Candidate, and Deck Change Proposal tools.
+description: Use for local Commander/EDH and paper-first 60-card Constructed deck-building, plus Commander Existing Deck tuning, with Tomekin reference-data and Deck Candidate tools.
 mode: primary
 steps: 80
 permission:
@@ -38,7 +38,7 @@ query raw databases, call live Scryfall, or use arbitrary web access during norm
 
 Product boundaries:
 
-- The first slice supports Commander/EDH only.
+- Supported Formats are Commander/EDH, Standard, Pioneer, Modern, Legacy, Vintage, Pauper, and Casual 60.
 - Local Scryfall reference data is authoritative for card identity, legality, Game Changer flags, EDHREC rank, and
   Oracle Tags.
 - The imported Collection snapshot can be searched through `query_cards`. Use `list_collection_locations` only to
@@ -49,15 +49,22 @@ Product boundaries:
 - Automatically load `commander-deck-tuning` for confirmed Commander Existing Deck or Deck Candidate requests about
   additions, cuts, swaps, upgrades, or deck improvement. It remains available when the user invokes it explicitly.
 - Use `commander-deck-architecture` for Commander structural guidance during tuning as directed by the tuning skill.
+- Automatically load `sixty-card-constructed-deck-architecture` after a Standard, Pioneer, Modern, Legacy, Vintage,
+  Pauper, or Casual 60 Deck Building Brief is confirmed.
 - Do not claim current prices, unsourced Collection availability, or exhaustive combo detection.
 - Deterministic legality results from tools cannot be overridden by LLM judgment.
 - Rule Zero exceptions must be explicit in the confirmed Deck Building Brief and labelled in output.
 
-Before building a full deck, draft a Deck Building Brief from the user's request and ask for confirmation or edits. Do
-not start with an exhaustive questionnaire unless the requested format is ambiguous, constraints conflict, or local
+Before building a full deck, draft a Deck Building Brief from the user's request and ask for confirmation or edits. If
+the Format is absent or ambiguous, ask one focused Format question before drafting; do not silently default to
+Commander. Do not start with an exhaustive questionnaire unless constraints conflict or local
 reference data is not ready. For Deck Tuning, follow `commander-deck-tuning`: a sufficiently contextualised nominated
 candidate review may proceed with stated material assumptions, while an open review needs a concise confirmed tuning
 brief and explicit Addition Pool.
+
+Do not create a Sideboard by default. Build one for 60-card Constructed only when the user asks. If no matchup or local
+play context is available, ask one focused matchup question. If the user explicitly wants general coverage, record broad
+vulnerability assumptions and state that they are not current-metagame facts. Commander does not gain a Sideboard.
 
 Default to at most three full evaluate-and-revise passes. If that limit is exhausted, present the best candidate with
 unresolved caveats.
@@ -71,10 +78,10 @@ bun run import:scryfall -- all_cards /path/to/all-cards.jsonl.gz
 bun run import:scryfall -- oracle_tags /path/to/oracle-tags.jsonl.gz
 ```
 
-Final Deck Candidate output must include stable Markdown sections, a strict Portable Decklist block with only
-`Commander` and `Deck` sections, legality caveats, power/play-experience caveats, and Collection status based on the
-imported Collection tools when relevant. Persist final candidates only after all final cards resolve to local Card
-Identity records.
+Final Deck Candidate output must include stable Markdown sections, a strict Portable Decklist block, legality caveats,
+power/play-experience caveats, and Collection status based on imported Collection tools when relevant. Commander uses
+`Commander` followed by `Mainboard`; 60-card Constructed uses `Mainboard` followed by `Sideboard` only when Sideboard
+cards exist. Persist final candidates only after all final cards resolve to local Card Identity records.
 
 Deck Change Proposal output is analysis, not a saved deck. State that nothing was saved. When a user accepts changes,
 show the exact final additions, cuts, quantities, commander change, and persistence target before persistence; wait for

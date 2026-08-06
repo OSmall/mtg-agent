@@ -14,11 +14,12 @@ Tomekin reached its Commander-first MVP on 14 July 2026 with the merge of the `r
 baseline established singleton deck construction, commander identity, casual power expectations, and collection-aware
 deck building while keeping the product language Format-extensible.
 
-The next format expansion is the paper-first 60-card Constructed family: Standard, Pioneer, Modern, Legacy, Vintage,
-Pauper, and Tomekin's unsanctioned Casual 60 Format. Its internal Format model, reference imports, deterministic
-validation, persistence, Card Query, and rendering foundations are implemented. The researched deck-building methodology
-and public agent integration remain deferred, so the released product remains Commander/EDH-first and must not advertise
-60-card deck building yet.
+On 6 August 2026 Tomekin added the paper-first 60-card Constructed family: Standard, Pioneer, Modern, Legacy, Vintage,
+Pauper, and Tomekin's unsanctioned Casual 60 Format. The supported workflow includes the internal Format model,
+reference imports, deterministic validation, persistence, Card Query, rendering, a researched construction methodology,
+and public agent integration. Sideboards are optional and built only when requested. Normal local operation does not
+claim current metagame knowledge: Sideboard work uses user-supplied context or records broad general-purpose
+assumptions.
 
 ## Collection Import
 
