@@ -1,5 +1,10 @@
 # ManaBox Collection Import Plan
 
+## Status
+
+The initial ManaBox Collection import was delivered as part of the Commander-first MVP milestone on 14 July 2026. This
+retained plan records the original source findings and implementation decisions.
+
 This plan defines the implementation slice for importing a ManaBox Collection CSV into the local SQLite Collection
 snapshot.
 

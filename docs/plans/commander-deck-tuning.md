@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented in the MVP on 2026-07-26. This retained plan records the research basis and implementation boundary.
+Implemented post-MVP on 26 July 2026. This retained plan records the research basis and implementation boundary.
 
 ## Goal
 

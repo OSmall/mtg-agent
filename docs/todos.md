@@ -21,4 +21,3 @@ Authored and edited only by osmall, not agents.
     lands.
 - Make better use of .jsonl Scryfall files i.e. stream them to save memory
 - Make deck candidate updates much faster. Right now, a 3 card substitution update takes like 6 mins; unacceptable.
-- Define project as reached MVP. Update docs

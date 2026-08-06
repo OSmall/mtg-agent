@@ -1,5 +1,11 @@
 # Card Query Plan
 
+## Status
+
+The initial Card Query capability was delivered as part of the Commander-first MVP milestone on 14 July 2026. This
+retained plan records the resolved query language and implementation rationale; later query extensions are post-MVP
+work.
+
 This plan captures the next search-tool direction after ManaBox Collection import. The goal is to replace temporary
 narrow card search tools with a structured Card Query capability that gives the deck-building agent flexible retrieval
 over joined card reference and Collection data without exposing raw database access.

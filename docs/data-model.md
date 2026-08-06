@@ -1,6 +1,9 @@
 # Data Model
 
-This document describes the MVP's persisted records and their relationships. It is implementation-facing documentation for the local SQLite model and future persistence adapters; canonical domain language still belongs in `CONTEXT.md`.
+This document describes the persisted records and relationships established for the achieved MVP baseline. It is
+implementation-facing documentation for the local SQLite model and future persistence adapters; canonical domain
+language still belongs in `CONTEXT.md`. Its retained `should` statements describe the baseline's intended invariants,
+not an unreleased milestone.
 
 The data model should preserve the product boundary between the user's Collection, Scryfall-backed card data, Deck Opportunities, and Deck Candidates. Persistence should support the local opencode MVP without making records opencode-specific.
 

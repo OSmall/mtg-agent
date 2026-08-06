@@ -1,6 +1,7 @@
 # Future Direction
 
-This document captures known directions that are intentionally outside the MVP or not yet designed in detail. These items should not be treated as current requirements unless a later decision promotes them into scope.
+This document captures known directions outside the achieved MVP baseline or not yet designed in detail. These items
+should not be treated as current requirements unless a later decision promotes them into scope.
 
 ## Collection Import
 
@@ -14,7 +15,8 @@ More specialised import/export formats may be needed later for exact collection 
 
 ## Adjacent Card Groups
 
-Sideboards, maybeboards, considering boards, upgrade boards, and budget alternative boards are future scope.
+Sideboards are part of the planned 60-card Constructed expansion when the user requests one. Maybeboards, considering
+boards, upgrade boards, and budget alternative boards remain separate future scope.
 
 The MVP Portable Decklist should remain final-deck-only. Future work may introduce separate structures for adjacent card groups without polluting the importable decklist.
 
@@ -62,7 +64,10 @@ Future UI work may parse or wrap the MVP's structured Markdown output. Stable he
 
 The MVP emphasises Commander/EDH while preserving a path to other formats.
 
-Future work may add deeper support for 60-card formats, including format-specific legality, sideboards, meta expectations, power calibration, and deck construction conventions.
+The next planned expansion is paper-first 60-card Constructed support for Standard, Pioneer, Modern, Legacy, Vintage,
+Pauper, and Casual 60. It includes format-specific deck construction and legality, optional Sideboards, and a researched
+agent methodology for building cohesive 60-card decks. Detailed settled scope, exclusions, observed gaps, and remaining
+questions are recorded in [`plans/60-card-constructed.md`](./plans/60-card-constructed.md).
 
 Project language and requirements should remain format-extensible so later work can support other MTG formats without rewriting the product concept.
 
@@ -76,7 +81,8 @@ Future protected-card workflows may cover sentimental, display, trade, high-valu
 
 ## Technology And Architecture
 
-The MVP will start as local opencode tooling over a TypeScript portable core running on Bun. This keeps the first implementation quick while preserving a path to a later web-based, multi-user hosted product.
+The MVP was delivered as local opencode tooling over a TypeScript portable core running on Bun. That kept the first
+implementation small while preserving a path to a later web-based, multi-user hosted product.
 
 Database, AI model provider, repository architecture, user interface shape, hosting, and deployment strategy remain otherwise deferred.
 

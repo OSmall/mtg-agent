@@ -6,10 +6,11 @@ This alpha helps you turn a ManaBox Collection export plus local Scryfall refere
 Candidates. It runs on your machine, stores data in local SQLite, and exposes deck-building actions through a project-local
 opencode agent and custom tools.
 
-## Alpha Status
+## Project Status
 
-This is a public alpha. The distribution model is intentionally clone-based: clone the repo,
-install dependencies, sync Scryfall data, import your collection, open opencode, and use the local deck-building agent.
+The public alpha remains intentionally clone-based: clone the repo, install dependencies, sync Scryfall data, import
+your collection, open opencode, and use the local deck-building agent. Development after the MVP milestone is tracked as
+post-MVP evolution rather than as unfinished MVP work.
 
 The project is not packaged for npm, does not include an installer, and does not provide hosted sync or hosted deck-building
 services yet.
@@ -165,7 +166,7 @@ bun run typecheck
 
 - [`CONTEXT.md`](./CONTEXT.md): canonical glossary and domain language.
 - [`docs/product-scope.md`](./docs/product-scope.md): product promise, scope boundaries, format direction, and non-goals.
-- [`docs/mvp.md`](./docs/mvp.md): MVP workflow, deck-building behaviour, capability boundaries, and output expectations.
+- [`docs/mvp.md`](./docs/mvp.md): achieved MVP baseline, workflow, capability boundaries, and output expectations.
 - [`docs/architecture.md`](./docs/architecture.md): architecture direction, portability philosophy, and unresolved technology decisions.
 - [`docs/data-model.md`](./docs/data-model.md): persisted records and relationships for the MVP data model.
 - [`docs/testing.md`](./docs/testing.md): testing posture, TDD expectations, test layers, fixture guidance, and LLM test boundary.
@@ -174,6 +175,6 @@ bun run typecheck
 
 ## Future Direction
 
-Likely post-alpha work includes friendlier setup checks, packaging around stable commands, broader Collection-aware deck
-building behaviour, richer candidate review, and eventually additional interfaces over the same portable core. Hosted
-deployment and npm packaging remain future possibilities, not alpha promises.
+Current post-MVP work includes broader Format support and continued improvement of Collection-aware deck building.
+Friendlier setup checks, packaging around stable commands, and additional interfaces over the same portable core remain
+future possibilities, not alpha promises.

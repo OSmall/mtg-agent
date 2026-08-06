@@ -1,10 +1,21 @@
-# MVP
+# MVP Baseline
 
-The MVP should prove that an agent can discover and build useful Commander/EDH deck candidates from the user's real Collection.
+## Status
+
+Achieved on 14 July 2026 when the `revamp` branch was merged into `main` in commit `ea3b4ec`, then released publicly as
+a clone-based alpha.
+
+This document records the accepted Commander-first MVP product baseline. Its `should` statements are normative
+descriptions of that achieved scope, not indications that the MVP is unfinished. Later capabilities and refinements
+belong in current product documentation, retained implementation plans, or `future-direction.md`; they should change
+this baseline only when correcting what the MVP milestone actually contained.
+
+The MVP proved that an agent can discover and build useful Commander/EDH Deck Candidates from the user's real
+Collection.
 
 ## MVP Scope
 
-The MVP should help an agent:
+The achieved MVP baseline covers an agent that can:
 
 - Parse a user's exported MTG collection.
 - Understand owned cards, quantities, and useful collection metadata.
@@ -65,140 +76,13 @@ Deck Opportunity discovery may still happen with an empty Collection, but it sho
 Improving an Existing Deck is a supported MVP workflow when the Existing Deck can be identified from the imported Collection metadata.
 
 This workflow should reuse the same core deck-building capabilities as new Deck Candidate construction. The agent starts
-from the Existing Deck's current list, applies the Deck Building Brief and Collection Access Policy, and produces a Deck
-Change Proposal. If the user explicitly asks to apply or accept the proposal, the agent may then produce a revised Deck
-Candidate with additions, cuts, Optional Upgrades, Collection Status, a Portable Decklist, and a Collection Pull List.
+from the Existing Deck's current list, applies the Deck Building Brief and Collection Access Policy, then proposes a
+revised Deck Candidate with additions, cuts, Optional Upgrades, Collection Status, a Portable Decklist, and a Collection
+Pull List.
 
-Deck Tuning should support two equally valid request shapes:
-
-- Candidate review: evaluate user-nominated cards, recommend including none, some, or all of them, and pair each recommended addition with a cut. After answering the nominated-card question, the agent may identify a materially better alternative when one satisfies the same need under the Deck Building Brief.
-- Open deck review: diagnose the Existing Deck and propose the highest-value set of changes available under the Deck Building Brief without requiring the user to nominate additions first.
-
-A candidate review does not require separate confirmation of a full Deck Building Brief when the Existing Deck and
-conversation already establish enough context. The agent should answer directly, state material assumptions, and ask
-only for missing information that could change the recommendation, especially intended play experience, power
-direction, or Addition Pool. An open deck review should confirm a concise tuning brief because an unconstrained request
-for the `best` changes does not establish its own optimisation objective.
-
-Before Deck Tuning, the agent should state the Addition Pool explicitly. It may be limited to Available Cards, include
-permitted Committed Cards, or include any legal card and therefore Missing Cards. The agent should infer the Addition
-Pool from established conversation context and the confirmed Deck Building Brief when possible; if the source of
-additions remains unknown, it should ask rather than infer a default from phrases such as `right now`.
-
-Deck Tuning should pair additions and cuts according to the revised deck's aggregate needs:
-
-1. When the deck's overall structure is healthy, prefer a like-for-like cut that occupies the same Deck Role or Deck
-   Package slot as the addition.
-2. When an addition repairs a meaningful structural deficit, cut the lowest-value card from a genuine surplus elsewhere
-   in the deck.
-3. Do not infer deficits or surpluses from raw counts alone. Account for cards with multiple Deck Roles, dependencies
-   within Deck Packages, mana curve, commander contributions, and the reliability of each card's contribution.
-
-This is a Deck Tuning heuristic rather than a claim of mathematically optimal play. The agent should explain the
-trade-off when it recommends a cross-role cut.
-
-Deck Tuning may increase power, reduce power, or make lateral changes when that better satisfies the confirmed Deck
-Building Brief. Examples include removing fast mana to fit a lower Commander Bracket, reducing commander dependence, or
-replacing generic staples with more thematic alternatives. The requested tuning direction should be explicit; in its
-absence, the agent should preserve the intended Power Level and play experience.
-
-Card Identity Tags and tagging weight are source-backed evidence that a card may perform a Deck Role, but they do not
-determine its candidate-specific contribution by themselves. The agent should decide the useful Deck Roles for the
-current tuning task by considering direct and Inherited Card Identity Tags alongside the card's Oracle text, Card Parts,
-card types, mana cost and Mana Value, keywords, restrictions, repeatability, required board state, dependence on the
-commander or another Deck Package, and whether modal choices compete with one another.
-
-For open-ended card discovery, the agent should use tag snowballing, relevant direct and Inherited Card Identity Tags,
-Oracle-text and card-property searches, overlap across several useful signals, and the needs of underrepresented Deck
-Roles or Deck Packages. EDHREC rank may help discover common cards or break a close tie, but it measures generic
-popularity and should not be treated as proof of card quality or fit. The agent should prefer deck-specific evidence over
-popularity so Deck Tuning does not collapse distinctive decks into generic staple lists.
-
-The agent may group cards into transient, task-specific Deck Roles and count how many cards it assigns to each role.
-These counts are useful evidence for identifying underrepresented and overrepresented roles, but the groupings should
-remain agent judgment rather than a fixed taxonomy or persisted card fact. Cards may appear in more than one role when
-that reflects how they function in the deck. The agent should interpret counts in context and should not treat several
-conditional or mutually exclusive functions as equivalent to the same number of independently dependable effects.
-
-Commander deck-building role-density targets should be treated as starting-point ranges rather than pass-or-fail
-thresholds. During Deck Tuning, the agent should adjust its expectations for the commander, mana curve, strategy,
-Commander Bracket, overlapping Deck Roles, and requested play experience, and explain material deviations when they
-affect a recommendation.
-
-Deck Tuning may recommend adding, cutting, or replacing lands, but the mana base should be analysed as a system rather
-than used as a source of convenient generic cuts for nonland additions. The agent should consider total land count,
-colored-source requirements, tapped-land burden, utility lands, mana curve, ramp, and commander cost. A recommendation
-to reduce the land count should include an explicit mana-based justification.
-
-User-reported gameplay patterns should be treated as stronger tuning evidence than generic role-density targets when
-the observations are relevant and credible. Examples include repeatedly running out of cards, missing colors, drawing
-redundant payoffs, failing after the commander is removed, or being unable to end games. Gameplay history is optional:
-the agent may perform static Deck Tuning without it, should not claim that it playtested or simulated the deck, and
-should ask about observed problems only when the answer would materially distinguish between competing recommendations.
-
-The commander is not automatically protected from Deck Tuning. The agent may recommend promoting a card from the 99 or
-acquiring a different commander when the alternative preserves a substantially similar game plan and offers meaningful
-advantages. A commander change is a high-impact recommendation: it should be presented explicitly, compare the
-strategic advantages and disadvantages, account for the commander's reliable availability from the command zone, and
-identify resulting legality or decklist changes. The agent should not silently apply a commander change as an ordinary
-one-for-one swap. A commander change that preserves Color Identity may remain within the current tuning change set. A
-commander change that alters Color Identity should be presented as a separate Deck Candidate variant because it may
-invalidate existing cards and changes the legal Addition Pool; the agent should obtain confirmation before constructing
-that variant.
-
-When reliable current price support exists, Deck Tuning should also support purchase-constrained requests such as finding
-the best five Missing Cards to buy within a total budget. Price-constrained recommendations must evaluate the combined
-set of purchases and resulting cuts rather than rank individual cards without considering their effect on the revised
-Deck Candidate. Requested purchase counts and budgets should be treated as ceilings unless the user explicitly requires
-exact values. The agent should recommend fewer cards or spend less rather than pad a weak proposal, and should leave an
-appropriate safety margin below a hard budget when prices are uncertain or time-sensitive.
-
-A Deck Change Proposal may be the final output of a tuning request. It should include paired additions and cuts,
-rejected user-nominated additions when relevant, the most important reasons for those decisions, and the expected
-aggregate effect on the deck. It should not be persisted.
-
-When relevant, a Deck Change Proposal should include:
-
-- Tuning Context: goal, Addition Pool, power and play-experience direction, and material assumptions.
-- Deck Diagnosis: game plan and relevant Deck Role counts, deficits, surpluses, curve, mana, or Deck Package concerns.
-- Recommended Changes: exact paired additions and cuts, concise reasoning, and Collection status where relevant.
-- Rejected Candidates: only user-nominated cards that should not be included.
-- Aggregate Effect: resulting role representation, curve and mana effects, strategic trade-offs, and Commander Bracket
-  implications.
-- Further Opportunities: optional lower-confidence or larger changes.
-- Persistence Status: an explicit statement that nothing was saved.
-
-Empty or irrelevant sections should be omitted so a quick candidate review remains concise.
-
-When the user does not specify a number of changes, the Deck Change Proposal should contain the smallest coherent set of
-high-confidence swaps that materially improves the deck. Lower-confidence or more marginal opportunities should be
-listed separately rather than silently expanding the primary proposal. If meaningful improvement requires replacing a
-large portion of the deck, the agent should explain the structural problem and ask whether the user wants a larger
-rebuild.
-
-Cards that the user explicitly protects or identifies as important to the deck's theme or enjoyment should not be
-proposed as cuts unless the user permits it. The agent should use established conversation context and the Deck Building
-Brief rather than asking about every card individually. When intent is ambiguous, it may distinguish a card that is weak
-for performance from one that may be an intentional theme or play-experience choice.
-
-When the user asks to apply or accept a Deck Change Proposal, the resulting output should include both a full revised
-Deck Candidate and a concise Change Summary. The full Deck Candidate is the source of truth for import and review. The
-Change Summary should explain additions, cuts, and the most important reasons for those changes. The agent should
-persist the revised Deck Candidate only when the user explicitly asks it to do so. If the tuning source is a saved Deck
-Candidate, persistence should update that candidate in place by default. A new candidate should be created only when the
-source is an imported Existing Deck or the user explicitly requests a copy, variant, or new candidate.
-
-Before persistence, the agent should present an explicit final Change Summary containing the exact additions and cuts,
-including quantities, any commander change, and whether the operation will update an existing candidate or create a new
-one, so the user can see how the decklist and saved record will change. The agent should wait for confirmation of that
-exact change set and persistence target and should not persist in the same message that first reveals them. After
-confirmation and before saving, the agent should resolve the resulting list and rerun deterministic legality and Deck
-Candidate evaluation.
-
-The user may accept, reject, or modify individual swaps in a Deck Change Proposal. When only part of a proposal is
-accepted, the agent should recompute Deck Role representation, deck size, mana curve, and legality before presenting the
-final persistence confirmation. It should explain when omitting one change weakens or invalidates another accepted
-change or the aggregate rationale.
+Existing Deck improvement output should include both a full revised Deck Candidate and a concise Change Summary. The
+full Deck Candidate is the source of truth for import and review. The Change Summary should explain additions, cuts, and
+the most important reasons for those changes.
 
 Existing Deck improvement should not require the MVP to mutate Collection state, update the source deck, or become a collection management system. The user remains responsible for applying accepted changes in their collection management software and reimporting or resyncing later.
 

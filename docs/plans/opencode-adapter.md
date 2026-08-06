@@ -1,5 +1,10 @@
 # Opencode Adapter Plan
 
+## Status
+
+The initial adapter slice was completed as part of the Commander-first MVP milestone on 14 July 2026. This retained plan
+records the original roadmap, design rationale, and implementation boundary.
+
 This plan defines the MVP opencode adapter roadmap and the first implementation slice for a local MTG deck-building agent.
 
 The first slice should produce a useful Commander/EDH deck-building agent over local Scryfall reference data, while preserving the project boundary that reusable product logic lives in the portable core and opencode remains only one adapter surface.

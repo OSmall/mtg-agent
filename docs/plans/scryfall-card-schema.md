@@ -1,5 +1,10 @@
 # Scryfall Card Schema Plan
 
+## Status
+
+The initial schema slice was delivered as part of the Commander-first MVP milestone on 14 July 2026. This retained plan
+records the source analysis and resolved representation decisions.
+
 This plan records decisions for the next Scryfall-backed card reference schema migration. It is implementation-facing;
 canonical domain language belongs in `CONTEXT.md` once terms are resolved.
 

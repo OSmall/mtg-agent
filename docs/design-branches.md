@@ -4,7 +4,6 @@ This document captures unresolved design branches to resume later. It should sta
 
 ## Data Model Details
 
-- Complete the planned implementation slice for `CardIdentityTag`, `CardIdentityTagAlias`, `CardIdentityTagging`, and `CardIdentityTagHierarchy` in [`plans/oracle-tags-import.md`](./plans/oracle-tags-import.md).
 - Define the exact scalar metadata fields for `DeckOpportunity` and `DeckCandidate`.
 - Define the Zod schemas for `DeckBuildingBrief` and `CollectionAccessPolicy`.
 - Decide whether to add candidate-specific `DeckCandidateCardRole` records or fields for roles such as enabler, payoff,
@@ -14,11 +13,13 @@ This document captures unresolved design branches to resume later. It should sta
 
 ## Application Services
 
-- Implement the structured Card Query service described in [`plans/card-query.md`](./plans/card-query.md) and
-  [`ADR 0012`](./adr/0012-cql2-shaped-card-queries.md).
+- Continue evolving the structured Card Query service described in [`plans/card-query.md`](./plans/card-query.md) and
+  [`ADR 0012`](./adr/0012-cql2-shaped-card-queries.md) only when concrete workflows require more query semantics.
 - Separate import services, Scryfall sync services, deck-building services, query services, and render/export services.
 - Decide which service outputs are structured data, Markdown, or both.
 - Define expected business errors for `neverthrow` Result seams.
+- Resolve the remaining implementation choices for paper-first 60-card Constructed support without changing Commander
+  eligibility. See [`plans/60-card-constructed.md`](./plans/60-card-constructed.md).
 
 ## Opencode Adapter
 
@@ -49,15 +50,17 @@ This document captures unresolved design branches to resume later. It should sta
 
 ## Testing
 
-- Create small ManaBox CSV fixtures.
-- Create Scryfall bulk-data subset fixtures for `oracle_tags` when Card Identity Tag import is implemented.
-- Test import failure behavior, transactionality, computed Availability, generated Portable Decklists, and agent-facing Markdown shape.
+- Extend the existing small ManaBox and Scryfall fixtures when new import behavior requires coverage.
+- Continue testing import failure behavior, transactionality, computed Availability, generated Portable Decklists, and
+  agent-facing Markdown shape.
+- Define format-matrix and Copy Limit Override fixtures before implementing 60-card Constructed validation.
 
-## Initial Implementation Sequence
+## Post-MVP Implementation Sequence
 
-- Next Card Query hardening slices: push supported filtering/sorting/Collection quantity work into SQL, populate
-  inherited tag projections for `include.tags` as a priority completeness gap, and expand strict Card Query validation
-  coverage.
-- After structured search, revise the base MTG deck-builder agent to be workflow-light and tool-bound, then move
-  repeatable workflows into skills or subagents.
+- Complete the remaining design decisions and source research for paper-first 60-card Constructed support before
+  implementation begins.
+- Address Card Query completeness or performance gaps when the 60-card workflow exposes a concrete need, including
+  inherited tag projections for `include.tags` and stricter validation where required.
+- Continue validating the workflow-light, tool-bound base agent and move repeatable, proven workflows into skills or
+  subagents.
 - Defer richer Deck Opportunity discovery until the card-data and collection-data foundations are reliable.

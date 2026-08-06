@@ -40,6 +40,30 @@ _Avoid_: Tier
 The rules environment a Deck Candidate is intended for, such as Commander/EDH or another MTG constructed format. Format determines deck construction rules, legality expectations, and format-specific conventions.
 _Avoid_: Mode, deck type
 
+**60-card Constructed**:
+The family of Constructed formats whose ordinary deck shape is a Mainboard of at least 60 cards with a four-copy
+default, including Standard, Pioneer, Modern, Legacy, Vintage, Pauper, and Casual 60. Commander/EDH is also Constructed
+and is not included in this term. _Avoid_: Normal Magic, non-Commander, Constructed when the distinction matters
+
+**Casual 60**:
+Tomekin's unsanctioned 60-card Constructed Format for collection-first play without card-pool legality, banned-list, or
+restricted-list constraints. Power Level remains a separate Deck Building Preference rather than being implied by the
+Format. _Avoid_: Freeform, Vintage
+
+**Mainboard**:
+The primary deck section that becomes the player's library after pregame procedures. In Commander/EDH it excludes the
+commander section; in 60-card Constructed it contains the ordinary minimum deck size. _Avoid_: Deck section, deck when
+referring to this section specifically
+
+**Sideboard**:
+An optional format-governed group of cards outside the Mainboard that may be used between games in a match. A Sideboard
+is distinct from a maybeboard, considering board, or list of optional recommendations. _Avoid_: Maybeboard, considering
+board, optional upgrades
+
+**Copy Limit Override**:
+A card-specific deck-construction rule that replaces a Format's ordinary maximum quantity for that Card Identity, such
+as allowing any number or a named upper bound. _Avoid_: Format copy limit, duplicate exception
+
 **Format Anchor**:
 The card, archetype, theme, or format-specific constraint that gives a Deck Opportunity or Deck Candidate its starting point. In Commander/EDH, the format anchor is usually the commander.
 _Avoid_: Theme, commander when not Commander/EDH-specific
@@ -183,7 +207,7 @@ A meaningful relationship where cards reinforce, enable, reward, or amplify one 
 _Avoid_: Combo, similarity, theme
 
 **Commander/EDH**:
-The primary format emphasis for the MVP. Decisions should preserve a path to other MTG formats later.
+The primary Format of Tomekin's achieved MVP baseline. Later Format expansion should preserve Commander/EDH behavior.
 _Avoid_: Commander-only
 
 **Commander Bracket**:

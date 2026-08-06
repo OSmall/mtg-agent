@@ -10,9 +10,13 @@ Its primary value is helping a player turn their real MTG collection into strong
 
 ## Format Direction
 
-The first useful version is Commander-first.
+Tomekin reached its Commander-first MVP on 14 July 2026 with the merge of the `revamp` branch into `main`. That achieved
+baseline established singleton deck construction, commander identity, casual power expectations, and collection-aware
+deck building while keeping the product language Format-extensible.
 
-The MVP may optimise initially for Commander/EDH concepts such as singleton deck construction, commander identity, casual power expectations, and collection-aware upgrades. Project language and requirements should remain format-extensible.
+The next planned format expansion is the paper-first 60-card Constructed family: Standard, Pioneer, Modern, Legacy,
+Vintage, Pauper, and Tomekin's unsanctioned Casual 60 Format. This remains future work until its implementation and
+tests are complete; the released product remains Commander/EDH-first.
 
 ## Collection Import
 

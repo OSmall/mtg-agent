@@ -1,5 +1,10 @@
 # SQLite Migrations Plan
 
+## Status
+
+Explicit Drizzle-managed migrations were delivered as part of the Commander-first MVP milestone on 14 July 2026. This
+retained plan records the migration workflow decision and adoption boundary.
+
 This plan records the decisions for replacing hand-written SQLite schema initialization with explicit Drizzle-managed
 migrations.
 
