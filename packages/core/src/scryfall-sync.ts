@@ -55,8 +55,8 @@ export type ScryfallBulkDataType = z.infer<typeof ScryfallBulkDataTypeSchema>;
 
 export const legacyScryfallImportContractRevision = 0;
 export const requiredScryfallImportContractRevisions = {
-    oracle_cards: 1,
-    all_cards: 1,
+    oracle_cards: 2,
+    all_cards: 2,
     oracle_tags: 1,
 } as const satisfies Readonly<Record<ScryfallBulkDataType, number>>;
 export const ImportContractRevisionSchema = z.number().int().nonnegative();
