@@ -229,6 +229,113 @@ describe("SQLite Scryfall repository", () => {
     );
   });
 
+    test("all_cards import accepts equivalent duplicate Card Printing records once", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+
+        const result = await repository.importCardPrintings(
+            importInput([...printings, printings[0]]),
+        );
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) throw new Error(result.error.message);
+        expect(result.value.importedRecordCount).toBe(printings.length);
+
+        const imported = await repository.listCardPrintings();
+        expect(imported.isOk()).toBe(true);
+        if (imported.isErr()) throw new Error(imported.error.message);
+        expect(imported.value).toHaveLength(printings.length);
+    });
+
+    test("all_cards import rejects conflicting duplicate Card Printing records without replacing the previous dataset", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+        expect((await repository.importCardPrintings(importInput(printings))).isOk()).toBe(true);
+        const conflicting = {
+            ...printings[0],
+            printing: {...printings[0].printing, setCode: "conflict"},
+        };
+
+        const result = await repository.importCardPrintings(
+            importInput([...printings, conflicting]),
+        );
+
+        expect(result.isErr()).toBe(true);
+        if (result.isOk()) throw new Error("expected conflicting duplicate import to fail");
+        expect(result.error.message).toContain("conflicting Card Printing ID");
+        expect(result.error.message).toContain(printings[0].printing.id);
+
+        const imported = await repository.listCardPrintings();
+        expect(imported.isOk()).toBe(true);
+        if (imported.isErr()) throw new Error(imported.error.message);
+        expect(imported.value).toContainEqual(
+            expect.objectContaining({
+                id: printings[0].printing.id,
+                setCode: printings[0].printing.setCode,
+            }),
+        );
+    });
+
+    test("all_cards import rejects a duplicate Card Printing ID with different finishes", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const [printing] = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+
+        const result = await repository.importCardPrintings(
+            importInput([
+                printing,
+                {...printing, printing: {...printing.printing, finishes: ["nonfoil"]}},
+            ]),
+        );
+
+        expect(result.isErr()).toBe(true);
+        if (result.isOk()) throw new Error("expected conflicting duplicate import to fail");
+        expect(result.error.message).toContain(`conflicting Card Printing ID ${printing.printing.id}`);
+    });
+
+    test("all_cards import rejects a duplicate Card Printing ID with different printing parts", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        const printing = printings.find((candidate) => candidate.parts.length > 0);
+        if (!printing) throw new Error("expected a printing with parts in the fixture");
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+
+        const result = await repository.importCardPrintings(
+            importInput([
+                printing,
+                {
+                    ...printing,
+                    parts: [
+                        {...printing.parts[0], printedText: "conflicting printed text"},
+                        ...printing.parts.slice(1),
+                    ],
+                },
+            ]),
+        );
+
+        expect(result.isErr()).toBe(true);
+        if (result.isOk()) throw new Error("expected conflicting duplicate import to fail");
+        expect(result.error.message).toContain(`conflicting Card Printing ID ${printing.printing.id}`);
+    });
+
   test("all_cards derives reversible_card Card Identity from a single face oracle_id", async () => {
     const repository = createTestRepository();
     const records = await readOracleCardIdentityRecordsFixture();

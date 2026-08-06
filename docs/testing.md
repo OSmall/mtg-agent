@@ -127,7 +127,9 @@ Scryfall sync tests should prove successful and failed `ScryfallBulkDataImport` 
 preserves the last usable dataset, `oracle_cards` imports before `all_cards`, `all_cards` rows reference existing
 `CardIdentity` rows, and operations that need card identity fail clearly when required Scryfall datasets are missing or
 use an incompatible Import Contract Revision. Oracle Cards coverage should include required supported-Format legality
-rows and accepted and rejected Copy Limit Override wording.
+rows and accepted and rejected Copy Limit Override wording. Repository coverage should prove equivalent duplicate Card
+Printing records import once while conflicting duplicates reject the import without replacing the previous usable
+dataset.
 
 Scryfall sync tests should use small package-local Scryfall fixtures, not real Scryfall bulk data files. Real Scryfall bulk files are too large for ordinary tests and must not be required by `bun test`.
 
