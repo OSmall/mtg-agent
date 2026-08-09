@@ -163,6 +163,20 @@ restriction precedence, reference readiness, Card Query, exact Portable Decklist
 and agent-routing configuration. The source-backed methodology is exercised manually before release; live-agent quality
 evaluation remains outside the default suite.
 
+## Deck-Building Workflow Scenario Evaluation
+
+Collection Opportunity discovery, fresh 60-card construction, and 60-card tuning use the versioned manual corpus in
+[`testing/deck-building-workflow-scenarios.md`](./testing/deck-building-workflow-scenarios.md). The scenarios assert
+acceptable-behaviour invariants rather than exact card lists.
+
+The reference qualitative run uses Sol at a recorded fixed reasoning effort. A Terra comparison is meaningful only at
+the same effort and after Sol passes. Model results are diagnostic: they do not run under `bun test`, use an LLM judge,
+or create a CI score threshold.
+
+Critical failures include Collection-scope leakage, deterministic illegality, fabricated playtesting or live facts, a
+padded Deck Opportunity shortlist, conflating selection with net card advantage, unexamined curve or mana claims,
+retaining weak cards solely for theme, and persistence before the required confirmation.
+
 ## Future Deck Tuning Scenario Evaluation
 
 The initial `commander-deck-tuning` skill does not require a comprehensive LLM scenario suite in its definition of done.

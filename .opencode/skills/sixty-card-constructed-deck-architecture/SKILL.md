@@ -1,161 +1,137 @@
 ---
 name: sixty-card-constructed-deck-architecture
-description: Use after a Standard, Pioneer, Modern, Legacy, Vintage, Pauper, or Casual 60 Deck Building Brief is confirmed to build a cohesive Mainboard and an optional requested Sideboard with Tomekin tools.
+description: Use after a Standard, Pioneer, Modern, Legacy, Vintage, Pauper, or Casual 60 Deck Building Brief and Deck Opportunity or specific Format Anchor are confirmed. Build a fresh cohesive Mainboard and optional requested Sideboard; do not use this skill to tune an Existing Deck before the tuning workflow selects a rebuild.
 ---
 
 # 60-card Constructed Deck Architecture
 
-Use this methodology after `tomekin-deck-building` confirms a Deck Building Brief whose Format is Standard, Pioneer,
-Modern, Legacy, Vintage, Pauper, or Casual 60. This is the canonical 60-card Constructed construction method. It does
-not replace `tomekin-deck-building` for tool orchestration, deterministic legality, rendering, or persistence.
+Use this methodology only for fresh construction after `tomekin-deck-building` confirms both the Deck Building Brief and
+a selected Deck Opportunity or sufficiently specific Format Anchor. Use `sixty-card-constructed-deck-tuning` first for
+an Existing Deck; enter this workflow from tuning only after the agent recommends and the user confirms a rebuild or
+fresh-construction path.
 
-The research provenance and stable-versus-volatile classification for this method are recorded in
-`docs/plans/60-card-constructed-slice-2-strategy.md`.
+Compose `tomekin-deck-building` for tool lifecycle, deterministic validation, rendering, and persistence. Load
+`query-cards` before non-trivial searches. The source classifications behind this method are recorded in
+`docs/plans/deck-building-workflow-rebuild.md`.
 
-## Core Principle
+## 1. Establish The Plan
 
-Build a deck that repeatedly executes one understandable game plan. Card quality matters, but cards must also have
-enough enablers, payoffs, redundancy, mana, interaction, card advantage, resilience, and credible win conditions to
-function together. Treat local Oracle text and direct and Inherited Card Identity Tags as evidence, not infallible role
-assignments.
-
-## 1. Confirm the Strategic Contract
-
-Carry forward the confirmed Format, Format Anchor, Power Level, play experience, Collection Access Policy, budget,
-missing-card tolerance, combo tolerance, constraints, exclusions, and assumptions.
-
-State:
+Turn the chosen direction into a functional plan before selecting cards. State:
 
 - how the deck gets ahead or survives;
 - what resource or board state it develops;
 - how it converts that state into a win; and
 - which opposing actions most directly interrupt it.
 
-Aggro, control, and midrange are useful lenses, not a closed taxonomy. Describe combo, tempo, ramp, typal, prison, and
-other plans by their actual resource pattern and win condition. Do not force the deck into an archetype label that does
-not clarify its construction.
+A creature type, mechanic, color pair, or favorite card is a seed, not yet a plan. Aggro, control, midrange, combo,
+tempo, ramp, typal, prison, and other labels are lenses rather than substitutes for the four statements above.
 
-## 2. Build a Cohesive Functional Core
+Carry forward Format, Format Anchor, Power Level, `playExperience`, Collection allow-list, budget, missing-card
+tolerance, combo tolerance, constraints, exclusions, and assumptions. Keep strength separate from pilot complexity: do
+not weaken a strong-casual request merely because the user wants approachable sequencing or limited bookkeeping.
 
-Define task-specific Deck Roles and Deck Packages from the full card context. Examples include early pressure, engine
-enabler, payoff, selection, true card advantage, interaction, protection, sweeper, recursion, ramp, and closer. These
-roles are transient analysis; do not invent a canonical taxonomy, score, enum, or persistence field.
+## 2. Choose Colors And Check Mana Feasibility
 
-- Use `search_card_identity_tags` and `query_cards` to find packages with overlapping tag, Oracle-text, curve, and
-  Collection evidence. Load `query-cards` before non-trivial filters.
-- Prefer internal affinity: foundational cards should reinforce several other cards, not only one dream draw.
-- Include enough enablers for the payoffs and enough redundant functional pieces to execute the plan consistently.
-- Use up to four copies of foundational cards when consistency justifies them.
-- Use fewer copies when a card is expensive, narrow, legendary, searchable, redundant only late, or poor in multiples.
-- Let deterministic Format legality and Copy Limit Overrides decide what is permitted. Never infer legality from the
-  methodology.
+Let the plan and Format Anchor determine colors, not the reverse. Before committing to a color count, check:
 
-Aim for exactly 60 Mainboard cards in ordinary circumstances because extra cards dilute access to the most important
-effects. More than 60 remains legal and may be correct for a card requirement, user constraint, or explicit strategic
-reason. Explain that reason; exact-60 is a consistency preference, not a legality invariant.
+- whether the allowed Collection and Missing Card tolerance contain the required enablers, payoffs, answers, and lands;
+- early and intensive colored costs;
+- the tempo, life, and budget costs of fixing;
+- whether extra colors add enough plan-relevant leverage to justify less consistent mana.
 
-## 3. Shape Curve, Tempo, and Resource Flow
+Change the plan or colors early when the mana requirements are not credible under the Brief.
 
-Lay out the early, middle, and closing turns the deck is built to play. Check that it has enough early actions for its
-plan, can spend mana efficiently, and has useful cards and mana sinks in longer games.
+## 3. Research Packages Before Individual Cards
 
-- Proactive decks need sufficient threat density and enough interaction to remove or prevent the problems that stop
-  their clock.
-- Reactive decks need early survival, broad enough answers, actual card advantage, and credible finishers.
-- Linear decks should avoid diluting their engine while retaining the interaction or resilience demanded by the Brief
-  and Format.
-- Treat card selection and looting separately from net card advantage unless the deck converts the selection cost into
-  real value.
-- Balance tempo and card advantage according to the expected game stages rather than maximizing either in isolation.
+Use local Oracle text, Card Identity properties, direct and Inherited Card Identity Tags, and scoped Collection evidence
+to build coherent Deck Packages. Define task-specific Deck Roles such as early pressure, enabler, payoff, selection,
+true card advantage, interaction, protection, sweeper, recursion, ramp, and closer.
 
-Do not apply Commander role-density targets to a 60-card deck. Derive useful densities from the plan, curve, copy
-counts, and available card pool, then explain material trade-offs.
+- Prefer cards that overlap several package needs or reinforce multiple other cards.
+- Include enough enablers for payoffs and enough functional redundancy to execute the plan consistently.
+- Treat Card Identity Tags as evidence, not infallible or persisted Deck Roles.
+- Use EDHREC rank only for discovery or a weak tie-breaker, never as proof of deck-specific quality.
+- Follow the confirmed Collection allow-list rather than maximizing owned-card use by default.
 
-## 4. Build Spells and Mana Together
+Use staged retrieval: broad queries return compact results in functional or Mana Value buckets; full tags and physical
+Collection rows are fetched only for shortlisted cards.
 
-Do not treat the mana base as leftover slots. Iterate spells, land count, and colored sources together.
+## 4. Assign Functional Slots And Quantities
 
-When the necessary inputs are reliable, use Frank Karsten's 60-card formula only as an explainable starting estimate:
+Decide how many cards each function needs before finalizing exact names. Choose a card's quantity according to how often
+the deck needs to see it and how well multiples function.
+
+- Use four copies for foundational cards the deck needs consistently.
+- Use fewer for expensive, narrow, legendary, searchable, redundant-late, matchup-specific, or poor-in-multiples cards.
+- Explain every foundational four-of and every unusual one- or two-of.
+- Aim for exactly 60 Mainboard cards for consistency. More than 60 requires an explicit card requirement, user
+  constraint, or strategic reason; it is not automatically illegal.
+
+Do not create a Sideboard by default. If requested, use matchup or local-play context. When none exists, ask one focused
+matchup question; if the user requests general coverage, state broad-vulnerability assumptions and make no current-meta
+claim. For each package, name the problem, cards in, likely cards out, and post-board effects on curve, mana, role
+coverage, and win condition.
+
+## 5. Shape Curve And Mana Together
+
+Describe the intended early, middle, and closing turns, then compare that sequence with the actual Mana Value
+distribution and functional early actions. Curve health is contextual:
+
+- Proactive decks need enough early pressure and plan-clearing interaction.
+- Reactive decks need early survival, broad-enough answers, actual card advantage, and credible finishers.
+- Linear decks must protect engine density without ignoring the minimum resilience demanded by the Brief.
+- Ramp decks may have multiple curve peaks when reliable acceleration connects them.
+
+Make an explicit **accept** or **revise** decision about the curve. Support it with the distribution, intended turn
+sequence, early-action density, and ramp or selection reliability; never accept a curve merely because a histogram was
+returned.
+
+Build spells and lands together. When inputs are reliable, use Frank Karsten's 60-card formula only as an explainable
+starting estimate:
 
 `19.59 + 1.90 × average nonland Mana Value - 0.28 × cheap draw/ramp count + 0.27 × companion count`
 
-For that estimate, a non-mythic land/spell modal double-faced card counts as 0.38 land and a mythic one as 0.74 land.
-The model has substantial unexplained variation and does not capture every deck feature. Do not report false precision.
-If the relevant cards cannot be classified confidently from local evidence, use a reasoned range instead.
+Count non-mythic land/spell modal double-faced cards as 0.38 land and mythic ones as 0.74 only when classification is
+reliable. The model has substantial unexplained variation. Explain adjustments for curve shape, colored sources,
+selection/ramp reliability, tapped and utility lands, life costs, modal cards, and the actual plan. Never use the
+formula as legality or a quality score.
 
-After the estimate, audit:
+## 6. Run A Static Quality Review
 
-- colored sources for early and intensive mana costs;
-- whether draw, selection, and ramp are early and reliable enough to affect land requirements;
-- lands entering tapped and their cost to the intended curve;
-- life payments and other land drawbacks;
-- utility lands that do not cast important spells;
-- usable sources on the required turn, not merely total land count; and
-- Sideboard cards that create new colored or curve requirements.
+True playtesting, simulation, opening-hand analysis, and goldfishing are unsupported. Perform a static review and use
+later user-reported gameplay as stronger tuning evidence.
 
-State the starting estimate, material adjustments, and uncertainty. The deterministic validator must not reject or warn
-merely because a legal Mainboard exceeds 60 cards or differs from this estimate.
+Require explicit evidence for:
 
-## 5. Sideboard Gate and Construction
-
-Do not create a Sideboard by default. Build one only when the user asks for one.
-
-Use matchup or local-play context already present in the conversation or Brief constraints. If none exists, ask one
-focused matchup question: which decks, strategies, or recurring problems should the Sideboard prepare for?
-
-If the user explicitly requests general-purpose coverage:
-
-- identify broad vulnerabilities in this Mainboard;
-- record the broad-coverage assumptions in the Brief assumptions;
-- do not present those assumptions as knowledge of the current metagame; and
-- prefer flexible coverage over narrow hate without a stated target.
-
-For every Sideboard package, state the problem or matchup, exact cards in, likely cards out, and how the post-board deck
-retains its curve, mana, role density, and win condition. Avoid over-sideboarding. Think of Mainboard and Sideboard as a
-coherent unit while respecting that the Mainboard must stand alone for Game 1.
-
-## 6. Collection-first Selection
-
-Follow the confirmed Collection Access Policy rather than maximizing owned-card use by default.
-
-- Query Collection evidence before calling a card Available, Committed, or Missing.
-- Prefer Available Cards when the Brief prioritizes Collection fit.
-- Explain when a weaker Collection-supported choice conflicts with Power Level or play experience.
-- Do not borrow Committed Cards, exceed budget, or widen the Missing Card pool without the Brief permitting it.
-- Do not claim current prices or availability not returned by Tomekin tools.
-
-## 7. Static Quality Review
-
-True playtesting, opening-hand simulation, and goldfishing are not supported. Run a static review instead:
-
-- coherent win condition and enough ways to reach it;
-- enabler, payoff, and redundancy balance;
-- threat and answer mix appropriate to the plan;
-- curve and early-action density;
-- card advantage and resilience;
+- coherent win conditions and enough ways to reach them;
+- enabler/payoff and threat/answer balance;
+- early actions, curve, and mana spending across intended turns;
+- true card advantage and resilience;
 - total lands, colored sources, and land drawbacks;
-- cards that are narrow, stranded, contradictory, or weak in multiples; and
-- Sideboard in/out plans when a Sideboard was requested.
+- package dependencies, modal competition, narrow cards, and cards weak in multiples;
+- Sideboard in/out plans when requested.
 
-Label uncertainty and user-context assumptions. Do not claim mathematical optimality or an unstated current metagame.
+Treat looting and filtering as selection, not net card advantage, unless the deck converts the selection cost into
+material value.
 
-## 8. Validate and Hand Back
+Identify the three weakest included nonland cards. Replace each one or justify it using a required Deck Role, package
+dependency, protected theme, power/play-experience goal, or Collection constraint. “On theme” alone is insufficient.
 
-Return the candidate to `tomekin-deck-building` for the required lifecycle:
+## 7. Validate, Recheck Availability, And Hand Back
+
+Return the candidate to `tomekin-deck-building`:
 
 1. Resolve final names with `resolve_decklist_cards`.
 2. Run `validate_format_legality` with the confirmed Brief.
-3. Run `evaluate_deck_candidate` for aggregate legality, power/play-experience context, mana curve, land count, and
-   Collection caveats.
-4. Revise weak areas for at most three full passes.
-5. Render canonical `Mainboard` and optional populated `Sideboard` sections.
-6. Save only after the final list resolves, deterministic checks pass, and assumptions and caveats are represented.
+3. When a non-empty Collection scope is active, requery every final card under the unchanged allow-list and compare
+   scoped quantities with required quantities before calling copies Available, Committed, or Missing. With an empty
+   Collection, treat every copy as Missing without inventing a Collection Pull List.
+4. Run `evaluate_deck_candidate` for aggregate legality, power/play-experience context, land count, and Mana Value
+   distribution; do not mistake it for a deck-quality verdict.
+5. Revise for at most three complete construction/review passes.
+6. Render canonical `Mainboard` and optional populated `Sideboard` sections.
+7. Save only after deterministic checks pass and assumptions, Collection status, and caveats are represented.
 
-## Final Explanation Requirements
-
-State the game plan, Format and Power Level fit, important role and package densities, curve, land count and colored
-source reasoning, key synergies, interaction, card advantage, Collection trade-offs, meaningful exclusions, legality and
-source-data caveats, and the reason for any Mainboard above 60 cards.
-
-When a Sideboard exists, also state matchup assumptions and concrete in/out plans. When none exists, do not add a
-maybeboard or relabel Optional Upgrades as a Sideboard.
+The final explanation states the plan, Power Level and pilot-complexity fit, important package/role densities, curve
+decision, land and colored-source reasoning, card-advantage evidence, weakest-card decisions, Collection trade-offs,
+meaningful exclusions, legality, and source-data caveats.

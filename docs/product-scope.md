@@ -21,6 +21,12 @@ and public agent integration. Sideboards are optional and built only when reques
 claim current metagame knowledge: Sideboard work uses user-supplied context or records broad general-purpose
 assumptions.
 
+On 9 August 2026 the local agent workflow separated Collection Opportunity discovery, fresh construction, and tuning.
+Open or seeded Collection exploration now compares viable directions before a full decklist. Existing 60-card decks use
+a diagnostic tuning workflow that may recommend focused repair, rebuild around an identity, or fresh construction. These
+are agent-methodology workflows over the existing portable tools; durable Deck Opportunity persistence and structured
+Collection Access Policy enforcement remain separate follow-on work.
+
 ## Collection Import
 
 The MVP supports ManaBox collection CSV exports only.

@@ -79,11 +79,19 @@ Future UI work may parse or wrap the MVP's structured Markdown output. Stable he
 
 ## Agent Quality Evaluation
 
-The default automated suite should remain deterministic, and current agent quality may be checked manually by the
-developer. Future work may add an explicit opt-in, versioned deck-building scenario suite that runs the existing Tomekin
-agent outside `bun test`, applies deterministic legality and artifact gates, and supports human review against a stable
-cohesion rubric. Do not introduce a separate judging agent, LLM-as-judge score, or CI threshold without evidence that
-the added machinery produces reliable decisions.
+The default automated suite remains deterministic. Tomekin now keeps a versioned manual Deck Opportunity,
+fresh-construction, and tuning scenario corpus outside `bun test`, with deterministic legality and Collection-scope
+gates plus human review of behavioural invariants.
+
+Future work may add an opt-in runner around that corpus. Do not introduce a separate judging agent, LLM-as-judge score,
+or CI threshold without evidence that the added machinery produces reliable decisions.
+
+## Agent Context Efficiency
+
+The current workflow uses bounded staged Card Queries and hydrates detailed tag or physical-copy evidence only for
+shortlists. Follow-on compact projections, pagination, recoverable truncation, stored working-candidate identifiers, and
+lifecycle payload deduplication are recorded in
+[`plans/agent-context-efficiency.md`](./plans/agent-context-efficiency.md).
 
 ## Format Expansion
 

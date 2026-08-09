@@ -135,8 +135,10 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
 - Explicit Scryfall bulk sync for `oracle_cards`, `all_cards`, and `oracle_tags`.
 - ManaBox Collection CSV import with blocking validation and non-destructive failed imports.
 - Format-aware opencode deck-building agent with deterministic local tools and researched 60-card construction guidance.
+- Collection Opportunity discovery across all supported Formats, with ranked viable directions before full construction.
 - Commander Existing Deck tuning: review proposed additions, identify paired cuts, or diagnose open-ended improvements
   within an explicitly stated Addition Pool.
+- 60-card Existing Deck tuning with an explicit focused-repair, rebuild-around-identity, or fresh-construction gate.
 - Card search, card identity lookup, Oracle Tag lookup, Format legality validation, deck rendering, and Deck Candidate
   persistence tools for Commander/EDH and the supported 60-card Formats.
 - Optional 60-card Sideboards when requested, with matchup context or explicit general-purpose assumptions.
@@ -152,6 +154,10 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
 - Prices, exhaustive combo detection, and live LLM evaluation are out of scope for the default local tools.
 - Deck-tuning recommendations are reasoned proposals, not deterministic optimality guarantees; prices and budgeted
   purchase recommendations are not yet supported.
+- Deck Opportunity shortlists are transient in the current agent workflow; durable Deck Opportunity persistence remains
+  future work.
+- Collection Location allow-list enforcement is procedural until the Deck Building Brief and evaluator gain a structured
+  Collection Access Policy.
 
 ## Development Commands
 

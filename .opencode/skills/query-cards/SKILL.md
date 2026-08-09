@@ -153,6 +153,147 @@ this location.”
   Location, finish, altered, and misprint filters constrain this total. With no Collection predicates, it is total owned
   quantity across the whole Collection.
 
+### Canonical Collection Location Allow-list
+
+Card Query is stateless: it does not remember the Deck Building Brief or a Collection Access Policy. When a
+deck-building workflow confirms allowed Collection Locations, call `list_collection_locations` once and record exact
+`(locationType, locationName)` pairs. Copy the same positive allow-list predicate into every Collection query and the
+final Availability recheck.
+
+When allowed names are unique, use one explicitly scoped predicate:
+
+```json
+{
+  "op": "withCollectionCard",
+  "args": [
+    {
+      "op": "and",
+      "args": [
+        {
+          "op": "in",
+          "args": [
+            {
+              "property": "collection.locationName"
+            },
+            [
+              "Main Binder",
+              "Red Starter Deck"
+            ]
+          ]
+        },
+        {
+          "op": ">",
+          "args": [
+            {
+              "property": "collection.quantity"
+            },
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Location names are unique only within a location type. If a binder and deck share a name, preserve exact pairs in
+separate branches:
+
+```json
+{
+  "op": "withCollectionCard",
+  "args": [
+    {
+      "op": "or",
+      "args": [
+        {
+          "op": "and",
+          "args": [
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationType"
+                },
+                "binder"
+              ]
+            },
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationName"
+                },
+                "Shared Name"
+              ]
+            },
+            {
+              "op": ">",
+              "args": [
+                {
+                  "property": "collection.quantity"
+                },
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "op": "and",
+          "args": [
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationType"
+                },
+                "deck"
+              ]
+            },
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationName"
+                },
+                "Allowed Deck"
+              ]
+            },
+            {
+              "op": ">",
+              "args": [
+                {
+                  "property": "collection.quantity"
+                },
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Do not simplify the second form to `locationName in [...]`; that could admit the disallowed location type. A Collection
+query that omits or widens the active allow-list is invalid workflow usage: discard its evidence and retry.
+
+For a final Deck Candidate Availability check, combine the unchanged allow-list with
+`identity.name in [final card names]`, use a limit large enough for the final distinct names, and compare each scoped
+`totalQuantity` with the required quantity.
+
+### Staged Retrieval
+
+Complete coverage does not require returning every raw field at once.
+
+- Use limits of 20-50 for broad discovery and query by functional package, tag concept, or Mana Value band.
+- Keep `include.tags` and `include.collectionCards` off during broad scans.
+- Fetch full tags for strategic shortlists and Collection Card rows for Availability or assembly evidence.
+- Do not request `include.tags: true` and `include.collectionCards: true` together across hundreds of cards.
+- Card Query has no pagination. If a result reaches its limit, narrow the filter into non-overlapping buckets rather
+  than raising the maximum or assuming the unseen tail is irrelevant.
+
 ## Includes
 
 `include` changes projection only; it does not constrain matching.

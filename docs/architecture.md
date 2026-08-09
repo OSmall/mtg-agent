@@ -72,6 +72,18 @@ orchestration, caching, CI performance, or additional apps make it useful.
 - The normal deck-building agent should be workflow-light but authority-bound: safe product tools only, no raw database
   MCP, and deterministic tools for legality, persistence, and final Collection checks.
 
+## Skill-first Methodology Proving
+
+Stable Collection analysis and Deck Opportunity product logic still belong in the portable core. Before those Interfaces
+are understood, the OpenCode adapter may temporarily hold nondeterministic discovery, construction, and tuning
+methodology in focused skills. Core Card Query, reference facts, legality, Collection evidence, rendering, and
+persistence remain authoritative.
+
+This proving Seam is intentionally temporary rather than a reversal of the portable-core direction. Promote only
+repeatable calculations whose inputs, outputs, errors, and freshness requirements have been demonstrated through the
+manual invariant scenarios. Transient skill-produced Deck Opportunity shortlists are not the durable Deck Opportunity
+records described by the product model.
+
 ## Open Decisions
 
 The following decisions have not been resolved yet:

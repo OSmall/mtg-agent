@@ -534,6 +534,67 @@ describe("SQLite Card Query repository", () => {
         });
     });
 
+    test("preserves allow-listed location type and name pairs when names collide", async () => {
+        await withTempCardQueryRepository(async ({db, repository}) => {
+            insertIdentityWithCollectionRows(db, {
+                identityId: "10000000-0000-4000-8000-000000000075",
+                name: "Allowed Binder Card",
+                rows: [
+                    {locationName: "Shared Name", locationType: "binder", quantity: 2},
+                    {locationName: "Shared Name", locationType: "deck", quantity: 7},
+                ],
+            });
+            insertIdentityWithCollectionRows(db, {
+                identityId: "10000000-0000-4000-8000-000000000076",
+                name: "Allowed Deck Card",
+                rows: [{locationName: "Allowed Deck", locationType: "deck", quantity: 3}],
+            });
+            insertIdentityWithCollectionRows(db, {
+                identityId: "10000000-0000-4000-8000-000000000077",
+                name: "Excluded Shared Deck Card",
+                rows: [{locationName: "Shared Name", locationType: "deck", quantity: 5}],
+            });
+
+            const result = await repository.queryCards({
+                filter: {
+                    op: "withCollectionCard",
+                    args: [{
+                        op: "or",
+                        args: [
+                            {
+                                op: "and",
+                                args: [
+                                    {op: "=", args: [{property: "collection.locationType"}, "binder"]},
+                                    {op: "=", args: [{property: "collection.locationName"}, "Shared Name"]},
+                                    {op: ">", args: [{property: "collection.quantity"}, 0]},
+                                ],
+                            },
+                            {
+                                op: "and",
+                                args: [
+                                    {op: "=", args: [{property: "collection.locationType"}, "deck"]},
+                                    {op: "=", args: [{property: "collection.locationName"}, "Allowed Deck"]},
+                                    {op: ">", args: [{property: "collection.quantity"}, 0]},
+                                ],
+                            },
+                        ],
+                    }],
+                },
+                include: {collectionCards: true},
+                sortby: [{property: "identity.name", direction: "asc"}],
+            });
+
+            expectOkNames(result, ["Allowed Binder Card", "Allowed Deck Card"]);
+            if (result.isOk()) {
+                expect(result.value.items.map((item) => item.totalQuantity)).toEqual([2, 3]);
+                expect(result.value.items.map((item) => item.collectionCards?.map((row) => [row.locationType, row.locationName, row.quantity]))).toEqual([
+                    [["binder", "Shared Name", 2]],
+                    [["deck", "Allowed Deck", 3]],
+                ]);
+            }
+        });
+    });
+
     test("returns no collection evidence for mixed or identities that match only through tags", async () => {
         await withTempCardQueryRepository(async ({db, repository}) => {
             insertIdentityWithCollectionRows(db, {
