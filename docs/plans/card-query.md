@@ -689,3 +689,7 @@ Use these scenarios as design fixtures when testing whether the query shape stay
 - Future explicit identity-level Collection existence semantics, such as owned/unowned or no copies in a location, if
   real
   agent workflows need anti-existence search.
+- Printing- and Set-aware Card Query is specified in
+  [`card-set-search.md`](./card-set-search.md), including `withPrinting`/`withoutPrinting`, local Set discovery,
+  source-faithful Set metadata, and the agent-facing distinction between acquiring a non-Universes Beyond Printing and
+  excluding every Card Identity that has ever received one.
