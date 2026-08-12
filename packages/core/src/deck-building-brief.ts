@@ -1,29 +1,66 @@
 import {z} from "zod";
 
-export const DeckFormatSchema = z.enum(["commander"]);
+export const deckFormatValues = [
+  "commander",
+  "standard",
+  "pioneer",
+  "modern",
+  "legacy",
+  "vintage",
+  "pauper",
+  "casual_60",
+] as const;
+export const DeckFormatSchema = z.enum(deckFormatValues);
 export type DeckFormat = z.infer<typeof DeckFormatSchema>;
 
-export const DeckBuildingBriefSchema = z.object({
+export const sixtyCardConstructedFormatValues = [
+  "standard",
+  "pioneer",
+  "modern",
+  "legacy",
+  "vintage",
+  "pauper",
+  "casual_60",
+] as const;
+export const SixtyCardConstructedFormatSchema = z.enum(sixtyCardConstructedFormatValues);
+export type SixtyCardConstructedFormat = z.infer<typeof SixtyCardConstructedFormatSchema>;
+
+const sharedBriefShape = {
   goal: z.string().min(1),
-  format: DeckFormatSchema.default("commander"),
   formatAnchor: z.string().min(1).nullable().default(null),
   playExperience: z.string().min(1).default("Synergistic, varied, expressive, and fair-feeling."),
-  commanderBracket: z.string().min(1).nullable().default(null),
   budget: z.string().min(1).nullable().default(null),
-    missingCardTolerance: z.string().min(1).default("Moderate; check the imported Collection before treating cards as Missing Cards."),
+  missingCardTolerance: z.string().min(1).default("Moderate; check the imported Collection before treating cards as Missing Cards."),
   comboTolerance: z.string().min(1).default("Avoid deterministic combo wins unless explicitly requested."),
   constraints: z.array(z.string().min(1)).default([]),
   exclusions: z.array(z.string().min(1)).default([]),
   assumptions: z.array(z.string().min(1)).default([]),
-  ruleZeroExceptions: z.array(z.string().min(1)).default([]),
+};
+
+export const CommanderDeckBuildingBriefSchema = z.strictObject({
+  ...sharedBriefShape,
+  format: z.literal("commander"),
+  commanderBracket: z.string().min(1).nullable(),
+  ruleZeroExceptions: z.array(z.string().min(1)),
 });
+export type CommanderDeckBuildingBrief = z.infer<typeof CommanderDeckBuildingBriefSchema>;
+
+export const SixtyCardConstructedDeckBuildingBriefSchema = z.strictObject({
+  ...sharedBriefShape,
+  format: SixtyCardConstructedFormatSchema,
+  powerLevel: z.string().min(1).nullable(),
+});
+export type SixtyCardConstructedDeckBuildingBrief = z.infer<typeof SixtyCardConstructedDeckBuildingBriefSchema>;
+
+export const DeckBuildingBriefSchema = z.discriminatedUnion("format", [
+  CommanderDeckBuildingBriefSchema,
+  SixtyCardConstructedDeckBuildingBriefSchema,
+]);
 export type DeckBuildingBrief = z.infer<typeof DeckBuildingBriefSchema>;
 
-export const DraftDeckBuildingBriefInputSchema = DeckBuildingBriefSchema.partial({
-  goal: true,
-}).extend({
-  goal: z.string().min(1),
-});
+// Branch defaults make the draft input concise, but Format and branch-specific
+// power fields stay explicit confirmed instructions.
+export const DraftDeckBuildingBriefInputSchema = DeckBuildingBriefSchema;
 export type DraftDeckBuildingBriefInput = z.input<typeof DraftDeckBuildingBriefInputSchema>;
 
 export type DraftDeckBuildingBriefOutput = {
@@ -36,10 +73,10 @@ export function draftDeckBuildingBrief(input: DraftDeckBuildingBriefInput): Draf
   const brief = DeckBuildingBriefSchema.parse(input);
   const assumptions = [
     ...brief.assumptions,
-    ...(brief.commanderBracket === null
+    ...(brief.format === "commander" && brief.commanderBracket === null
       ? ["Commander Bracket was not specified; confirm the intended table experience before deck-building."]
       : []),
-      "Collection availability must be checked against the imported Collection snapshot before candidate cards are treated as Missing Cards.",
+    "Collection availability must be checked against the imported Collection snapshot before candidate cards are treated as Missing Cards.",
   ];
 
   return {

@@ -1,16 +1,18 @@
 import {err, ok, type Result} from "neverthrow";
 import {z} from "zod";
-import {draftDeckBuildingBrief, DraftDeckBuildingBriefInputSchema} from "./deck-building-brief";
+import {DeckBuildingBriefSchema, DeckFormatSchema, draftDeckBuildingBrief} from "./deck-building-brief";
 import {type CardQueryRepository, parseCardQueryInput} from "./card-query";
-import {type CardReferenceRepository, getFormatConstraints} from "./card-reference-queries";
+import {type CardReferenceRepository, getFormatConstraints, type ReferenceDataStatus} from "./card-reference-queries";
 import type {CollectionQueryRepository} from "./collection-import";
 import {
-  type DeckCandidateRepository,
-  normalizeDeckCandidateForSave,
-  SaveDeckCandidateInputSchema
+    DeckCandidateCardSectionSchema,
+    type DeckCandidateRepository,
+    normalizeDeckCandidateForSave,
+    SaveDeckCandidateInputSchema
 } from "./deck-candidate";
 import {renderDeckCandidateMarkdown, renderPortableDecklist} from "./deck-candidate-rendering";
-import {type CommanderDeckCard, validateCommanderDeck} from "./commander-legality";
+import {assessDeckLegality, type DeckLegalityCard} from "./format-legality";
+import type {ScryfallBulkDataImport, ScryfallBulkDataType} from "./scryfall-sync";
 
 export const AgentToolNameSchema = z.enum([
   "draft_deck_building_brief",
@@ -33,8 +35,27 @@ export type AgentToolName = z.infer<typeof AgentToolNameSchema>;
 export const GetCardIdentityArgsSchema = z.object({idOrName: z.string().min(1)});
 export const SearchCardIdentityTagsArgsSchema = z.object({query: z.string().optional(), limit: z.number().int().positive().max(100).optional()});
 export const ResolveDecklistCardsArgsSchema = z.object({names: z.array(z.string().min(1)).min(1)});
-export const ValidateDeckCandidateArgsSchema = z.object({cards: z.array(z.object({cardIdentityId: z.uuid(), quantity: z.number().int().positive(), section: z.enum(["commander", "deck"])})).min(1), brief: z.unknown().optional()});
-export const RenderDeckCandidateArgsSchema = z.object({label: z.string().min(1), cards: z.array(z.object({cardIdentityId: z.uuid(), cardName: z.string().min(1), quantity: z.number().int().positive(), section: z.enum(["commander", "deck"]), sortOrder: z.number().int().nonnegative().default(0), note: z.string().nullable().default(null)})).min(1), sections: z.record(z.string(), z.string()).optional()});
+export const ValidateDeckCandidateArgsSchema = z.strictObject({
+    cards: z.array(z.object({
+        cardIdentityId: z.uuid(),
+        quantity: z.number().int().positive(),
+        section: DeckCandidateCardSectionSchema,
+    })).min(1),
+    brief: DeckBuildingBriefSchema,
+});
+export const RenderDeckCandidateArgsSchema = z.strictObject({
+    label: z.string().min(1),
+    format: DeckFormatSchema,
+    cards: z.array(z.object({
+        cardIdentityId: z.uuid(),
+        cardName: z.string().min(1),
+        quantity: z.number().int().positive(),
+        section: DeckCandidateCardSectionSchema,
+        sortOrder: z.number().int().nonnegative().default(0),
+        note: z.string().nullable().default(null)
+    })).min(1),
+    sections: z.record(z.string(), z.string()).optional()
+});
 export const SaveDeckCandidateArgsSchema = SaveDeckCandidateInputSchema;
 export const GetDeckCandidateArgsSchema = z.object({id: z.uuid()});
 export type AgentToolRepositories = {
@@ -44,34 +65,50 @@ export type AgentToolRepositories = {
   readonly collection: CollectionQueryRepository;
 };
 
-export type AgentToolError = {readonly type: "validation_error" | "tool_error"; readonly message: string};
+export type AgentToolError =
+    | { readonly type: "validation_error" | "tool_error"; readonly message: string }
+    | {
+    readonly type: "reference_data_unready";
+    readonly message: string;
+    readonly missingBulkDataTypes: readonly ScryfallBulkDataType[];
+    readonly reimportRequiredBulkDataTypes: readonly ScryfallBulkDataType[];
+};
 
 export function createAgentToolHandlers(repositories: AgentToolRepositories) {
   return {
-    queryCards(input: unknown) {
+      async queryCards(input: unknown) {
       const parsed = parseCardQueryInput(input);
-      if (parsed.isErr()) return Promise.resolve(parsed);
+          if (parsed.isErr()) return parsed;
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
       return repositories.cardQuery.queryCards(parsed.value);
     },
     draftDeckBuildingBrief(input: unknown) {
-      return safeSync(() => draftDeckBuildingBrief(DraftDeckBuildingBriefInputSchema.parse(input)));
+        return safeSync(() => draftDeckBuildingBrief(DeckBuildingBriefSchema.parse(input)));
     },
-    getCardIdentity(input: unknown) {
+      async getCardIdentity(input: unknown) {
       const args = GetCardIdentityArgsSchema.parse(input);
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
       return repositories.cardReference.getCardIdentity(args.idOrName);
     },
-    searchCardIdentityTags(input: unknown) {
-      return repositories.cardReference.searchCardIdentityTags(SearchCardIdentityTagsArgsSchema.parse(input));
+      async searchCardIdentityTags(input: unknown) {
+          const args = SearchCardIdentityTagsArgsSchema.parse(input);
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
+          return repositories.cardReference.searchCardIdentityTags(args);
     },
     summarizeReferenceSupport() {
       return repositories.cardReference.summarizeReferenceSupport();
     },
     getFormatConstraints(input: unknown) {
-      const format = z.object({format: z.string().default("commander")}).parse(input ?? {}).format;
+        const format = z.object({format: DeckFormatSchema}).parse(input ?? {}).format;
       return Promise.resolve(getFormatConstraints(format));
     },
     async resolveDecklistCards(input: unknown) {
       const args = ResolveDecklistCardsArgsSchema.parse(input);
+        const ready = await requireReferenceData(repositories.cardReference);
+        if (ready.isErr()) return ready;
       const resolved = [];
       const unresolved = [];
       for (const name of args.names) {
@@ -82,35 +119,73 @@ export function createAgentToolHandlers(repositories: AgentToolRepositories) {
       return ok({resolved, unresolved});
     },
     async validateFormatLegality(input: unknown) {
-      const args = ValidateDeckCandidateArgsSchema.parse(input);
+        const parsed = safeSync(() => ValidateDeckCandidateArgsSchema.parse(input));
+        if (parsed.isErr()) return parsed;
+        const args = parsed.value;
       const rows = await rowsWithDetails(repositories, args.cards);
       if (rows.isErr()) return rows;
-      return ok(validateCommanderDeck(rows.value, undefined));
+        const assessment = assessDeckLegality({
+            format: args.brief.format,
+            cards: rows.value.cards,
+            brief: args.brief,
+            scryfallSourceUpdatedAt: latestOracleCardsSourceTimestamp(rows.value.referenceImports),
+        });
+        return assessment.isErr()
+            ? err({type: "tool_error", message: assessment.error.message} as const)
+            : ok(assessment.value);
     },
     async evaluateDeckCandidate(input: unknown) {
-      const args = ValidateDeckCandidateArgsSchema.parse(input);
+        const parsed = safeSync(() => ValidateDeckCandidateArgsSchema.parse(input));
+        if (parsed.isErr()) return parsed;
+        const args = parsed.value;
       const rows = await rowsWithDetails(repositories, args.cards);
       if (rows.isErr()) return rows;
-      const legality = validateCommanderDeck(rows.value, undefined);
-      const gameChangers = rows.value.filter((row) => row.card.gameChanger).map((row) => row.card.name);
-      const landCount = rows.value.filter((row) => /\bLand\b/i.test(row.card.typeLine)).reduce((sum, row) => sum + row.quantity, 0);
-      const manaCurve = rows.value.reduce<Record<string, number>>((curve, row) => {
-        if (row.section === "deck" && !/\bLand\b/i.test(row.card.typeLine)) curve[String(row.card.manaValue)] = (curve[String(row.card.manaValue)] ?? 0) + row.quantity;
+        const assessed = assessDeckLegality({
+            format: args.brief.format,
+            cards: rows.value.cards,
+            brief: args.brief,
+            scryfallSourceUpdatedAt: latestOracleCardsSourceTimestamp(rows.value.referenceImports),
+        });
+        if (assessed.isErr()) return err({type: "tool_error", message: assessed.error.message} as const);
+        const gameChangers = rows.value.cards.filter((row) => row.card.gameChanger).map((row) => row.card.name);
+        const landCount = rows.value.cards
+            .filter((row) => row.section === "mainboard" && /\bLand\b/i.test(row.card.typeLine))
+            .reduce((sum, row) => sum + row.quantity, 0);
+        const manaCurve = rows.value.cards.reduce<Record<string, number>>((curve, row) => {
+          if (row.section === "mainboard" && !/\bLand\b/i.test(row.card.typeLine)) curve[String(row.card.manaValue)] = (curve[String(row.card.manaValue)] ?? 0) + row.quantity;
         return curve;
       }, {});
       return ok({
-        legality,
-        powerAndExperience: {gameChangerCount: gameChangers.length, gameChangers},
+          legality: assessed.value,
+          powerAndExperience: args.brief.format === "commander"
+              ? {
+                  commanderBracket: args.brief.commanderBracket,
+                  playExperience: args.brief.playExperience,
+                  gameChangerCount: gameChangers.length,
+                  gameChangers,
+              }
+              : {
+                  powerLevel: args.brief.powerLevel,
+                  playExperience: args.brief.playExperience,
+              },
         manaAndCurve: {landCount, manaCurve},
-        collectionStatus: "Collection availability is not evaluated by this tool. Use search_collection_cards for owned-copy evidence."
+          collectionStatus: "Collection availability is not evaluated by this tool. Use query_cards for owned-copy evidence."
       });
     },
     renderDeckCandidate(input: unknown) {
-      const args = RenderDeckCandidateArgsSchema.parse(input);
-      return safeSync(() => ({markdown: renderDeckCandidateMarkdown(args), portableDecklist: renderPortableDecklist(args.cards)}));
+        return safeSync(() => {
+            const args = RenderDeckCandidateArgsSchema.parse(input);
+            return {
+                markdown: renderDeckCandidateMarkdown(args),
+                portableDecklist: renderPortableDecklist(args.format, args.cards)
+            };
+        });
     },
-    saveDeckCandidate(input: unknown) {
-      return repositories.deckCandidates.saveDeckCandidate(normalizeDeckCandidateForSave(SaveDeckCandidateArgsSchema.parse(input)));
+      async saveDeckCandidate(input: unknown) {
+          const candidate = normalizeDeckCandidateForSave(SaveDeckCandidateArgsSchema.parse(input));
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
+          return repositories.deckCandidates.saveDeckCandidate(candidate);
     },
     getDeckCandidate(input: unknown) {
       const args = GetDeckCandidateArgsSchema.parse(input);
@@ -125,14 +200,60 @@ export function createAgentToolHandlers(repositories: AgentToolRepositories) {
   };
 }
 
-async function rowsWithDetails(repositories: AgentToolRepositories, cards: readonly {cardIdentityId: string; quantity: number; section: "commander" | "deck"}[]): Promise<Result<readonly CommanderDeckCard[], AgentToolError>> {
+async function rowsWithDetails(repositories: AgentToolRepositories, cards: readonly {
+    cardIdentityId: string;
+    quantity: number;
+    section: "commander" | "mainboard" | "sideboard";
+}[]): Promise<Result<{
+    readonly cards: readonly DeckLegalityCard[];
+    readonly referenceImports: readonly ScryfallBulkDataImport[];
+}, AgentToolError>> {
+    const ready = await requireReferenceData(repositories.cardReference);
+    if (ready.isErr()) return err(ready.error);
   const details = await repositories.cardReference.listCardIdentitiesByIds(cards.map((card) => card.cardIdentityId));
   if (details.isErr()) return err({type: "tool_error", message: details.error.message});
-  return ok(cards.map((card) => {
+    const resolved: DeckLegalityCard[] = [];
+    for (const card of cards) {
     const detail = details.value.find((candidate) => candidate.identity.id === card.cardIdentityId);
-    if (!detail) throw new Error(`Missing Card Identity detail: ${card.cardIdentityId}`);
-    return {card: detail.identity, quantity: card.quantity, section: card.section, legalities: detail.legalities, parts: detail.parts};
-  }));
+        if (!detail) return err({type: "tool_error", message: `Unresolved Card Identity: ${card.cardIdentityId}.`});
+        resolved.push({
+            card: detail.identity,
+            quantity: card.quantity,
+            section: card.section,
+            legalities: detail.legalities,
+            parts: detail.parts
+        });
+    }
+    return ok({cards: resolved, referenceImports: ready.value.imports});
+}
+
+async function requireReferenceData(cardReference: CardReferenceRepository): Promise<Result<ReferenceDataStatus, AgentToolError>> {
+    const support = await cardReference.summarizeReferenceSupport();
+    if (support.isErr()) return err({type: "tool_error", message: support.error.message});
+    if (support.value.ready) return ok(support.value);
+    const missing = support.value.missing;
+    const reimportRequired = support.value.reimportRequired;
+    const requirements = [
+        missing.length > 0 ? `missing: ${missing.join(", ")}` : null,
+        reimportRequired.length > 0 ? `reimport required: ${reimportRequired.join(", ")}` : null,
+    ].filter((requirement): requirement is string => requirement !== null);
+    return err({
+        type: "reference_data_unready",
+        message: `Scryfall reference data is not ready (${requirements.join("; ")}).`,
+        missingBulkDataTypes: missing,
+        reimportRequiredBulkDataTypes: reimportRequired,
+    });
+}
+
+function latestOracleCardsSourceTimestamp(imports: readonly ScryfallBulkDataImport[]): Date | null {
+    const latest = imports
+        .filter((item) => item.bulkDataType === "oracle_cards" && item.status === "succeeded")
+        .sort((left, right) => importTimestamp(right) - importTimestamp(left))[0];
+    return latest?.sourceUpdatedAt ?? null;
+}
+
+function importTimestamp(item: ScryfallBulkDataImport): number {
+    return (item.completedAt ?? item.startedAt).getTime();
 }
 
 function safeSync<T>(fn: () => T): Result<T, AgentToolError> {

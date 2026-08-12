@@ -1,5 +1,10 @@
 # Alpha Public Release Prep Plan
 
+## Status
+
+Completed as part of the Commander-first MVP milestone merged into `main` on 14 July 2026 in commit `ea3b4ec`. This is a
+retained historical plan for the clone-based public alpha release.
+
 This plan defines the release-prep work for making the local opencode deck-building project ready for a public GitHub
 `alpha1.0.0` release.
 

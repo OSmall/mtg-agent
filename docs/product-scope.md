@@ -10,9 +10,22 @@ Its primary value is helping a player turn their real MTG collection into strong
 
 ## Format Direction
 
-The first useful version is Commander-first.
+Tomekin reached its Commander-first MVP on 14 July 2026 with the merge of the `revamp` branch into `main`. That achieved
+baseline established singleton deck construction, commander identity, casual power expectations, and collection-aware
+deck building while keeping the product language Format-extensible.
 
-The MVP may optimise initially for Commander/EDH concepts such as singleton deck construction, commander identity, casual power expectations, and collection-aware upgrades. Project language and requirements should remain format-extensible.
+On 6 August 2026 Tomekin added the paper-first 60-card Constructed family: Standard, Pioneer, Modern, Legacy, Vintage,
+Pauper, and Tomekin's unsanctioned Casual 60 Format. The supported workflow includes the internal Format model,
+reference imports, deterministic validation, persistence, Card Query, rendering, a researched construction methodology,
+and public agent integration. Sideboards are optional and built only when requested. Normal local operation does not
+claim current metagame knowledge: Sideboard work uses user-supplied context or records broad general-purpose
+assumptions.
+
+On 9 August 2026 the local agent workflow separated Collection Opportunity discovery, fresh construction, and tuning.
+Open or seeded Collection exploration now compares viable directions before a full decklist. Existing 60-card decks use
+a diagnostic tuning workflow that may recommend focused repair, rebuild around an identity, or fresh construction. These
+are agent-methodology workflows over the existing portable tools; durable Deck Opportunity persistence and structured
+Collection Access Policy enforcement remain separate follow-on work.
 
 ## Collection Import
 

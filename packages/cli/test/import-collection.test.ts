@@ -255,7 +255,7 @@ function toRawOracleCardFixture(row: Record<string, string>, index: number) {
         color_identity: [],
         keywords: [],
         game_changer: false,
-        legalities: {commander: "legal"},
+        legalities: fixtureLegalities(),
         scryfall_uri: `https://scryfall.com/card/${row["Set code"]}/${row["Collector number"]}/fixture`,
     };
 }
@@ -290,7 +290,7 @@ const rawOracleCards = [
         color_identity: [],
         keywords: [],
         game_changer: false,
-        legalities: {commander: "legal"},
+        legalities: fixtureLegalities(),
         scryfall_uri: "https://scryfall.com/card/v10/12/sol-ring",
     },
     {
@@ -306,10 +306,22 @@ const rawOracleCards = [
         color_identity: ["G"],
         keywords: [],
         game_changer: false,
-        legalities: {commander: "legal"},
+        legalities: fixtureLegalities(),
         scryfall_uri: "https://scryfall.com/card/m11/168/cultivate",
     },
 ] as const;
+
+function fixtureLegalities() {
+    return {
+        commander: "legal" as const,
+        standard: "legal" as const,
+        pioneer: "legal" as const,
+        modern: "legal" as const,
+        legacy: "legal" as const,
+        vintage: "legal" as const,
+        pauper: "legal" as const
+    };
+}
 
 const rawAllCards = [
     {

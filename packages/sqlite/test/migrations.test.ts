@@ -1,14 +1,96 @@
 import {describe, expect, test} from "bun:test";
-import {mkdtempSync, readFileSync} from "node:fs";
+import {mkdtempSync, readdirSync, readFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {sql} from "drizzle-orm";
 import {createTestRootLoggerFromEnv} from "@tomekin/core";
-import {closeDatabase, openDatabase} from "@tomekin/sqlite";
+import {closeDatabase, createSqliteCardReferenceRepository, openDatabase} from "@tomekin/sqlite";
 
 const testLog = createTestRootLoggerFromEnv();
 
 describe("SQLite migrations", () => {
+    test("0005 preserves Commander candidates while cutting over sections and reference derivations", async () => {
+        const dbPath = join(mkdtempSync(join(tmpdir(), "tomekin-migration-0005-")), "test.sqlite");
+        const db = openDatabase(dbPath, {log: testLog});
+        try {
+            const migrationsDirectory = new URL("../drizzle/", import.meta.url);
+            for (const filename of readdirSync(migrationsDirectory).filter((name) => /^000[0-4]_.*\.sql$/.test(name)).sort()) {
+                runMigrationSql(db, new URL(filename, migrationsDirectory));
+            }
+            const briefJson = '{"goal":"Keep me exact","format":"commander","formatAnchor":"Example Commander","playExperience":"Casual","commanderBracket":"Bracket 2","budget":null,"missingCardTolerance":"Moderate","comboTolerance":"Avoid","constraints":[],"exclusions":[],"assumptions":[],"ruleZeroExceptions":[]}';
+            const markdown = "# Existing Candidate\n\n## Portable Decklist\n\nDeck\n1 Sol Ring";
+            db.run(sql.raw(`
+                INSERT INTO card_identity (id, name, layout, mana_cost, mana_value, type_line, oracle_text,
+                                           color_identity, colors, color_indicator, produced_mana, keywords_json, power,
+                                           toughness, loyalty, defense, edhrec_rank, game_changer, source_page_uri)
+                VALUES ('11111111-1111-4111-8111-111111111111', 'Sol Ring', 'normal', '{1}', 1, 'Artifact',
+                        '{T}: Add {C}{C}.', '', NULL, NULL, 'C', '[]', NULL, NULL, NULL, NULL, NULL, 0,
+                        'https://scryfall.com/card/v10/12/sol-ring')
+            `));
+            db.run(sql.raw(`
+                INSERT INTO scryfall_bulk_data_import (id, bulk_data_type, status, started_at, completed_at,
+                                                       source_updated_at, source_uri, imported_record_count,
+                                                       warnings_json, blocking_errors_json)
+                VALUES ('22222222-2222-4222-8222-222222222222', 'oracle_cards', 'succeeded', 1, 2, 1,
+                        'fixture://oracle', 1, '[]', '[]')
+            `));
+            db.$client.prepare(`
+                INSERT INTO deck_candidate (id, label, format, format_anchor, commander_bracket, brief_json,
+                                            collection_import_timestamp, markdown, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run("candidate-1", "Existing Candidate", "commander", "Example Commander", "Bracket 2", briefJson, null, markdown, 10, 20);
+            db.run(sql.raw(`
+                INSERT INTO deck_candidate_card (id, deck_candidate_id, card_identity_id, quantity, section, sort_order,
+                                                 note)
+                VALUES ('candidate-card-1', 'candidate-1', '11111111-1111-4111-8111-111111111111', 1, 'deck', 7,
+                        'keep note')
+            `));
+
+            const migration = readdirSync(migrationsDirectory).find((name) => /^0005_.*\.sql$/.test(name));
+            expect(migration).toBeDefined();
+            runMigrationSql(db, new URL(migration!, migrationsDirectory));
+
+            const candidate = db.$client.query<{
+                brief_json: string;
+                markdown: string
+            }, []>("SELECT brief_json, markdown FROM deck_candidate WHERE id = 'candidate-1'").get();
+            expect(candidate).toEqual({brief_json: briefJson, markdown});
+            expect(db.$client.query("PRAGMA table_info(deck_candidate)").all().some((column: any) => column.name === "commander_bracket")).toBe(false);
+            expect(db.$client.query("SELECT id, deck_candidate_id, card_identity_id, quantity, section, sort_order, note FROM deck_candidate_card").get()).toEqual({
+                id: "candidate-card-1",
+                deck_candidate_id: "candidate-1",
+                card_identity_id: "11111111-1111-4111-8111-111111111111",
+                quantity: 1,
+                section: "mainboard",
+                sort_order: 7,
+                note: "keep note",
+            });
+            expect(db.$client.query("SELECT copy_limit_override_kind, copy_limit_override_maximum FROM card_identity").get()).toEqual({
+                copy_limit_override_kind: "none",
+                copy_limit_override_maximum: null,
+            });
+            expect(db.$client.query("SELECT import_contract_revision FROM scryfall_bulk_data_import WHERE id = '22222222-2222-4222-8222-222222222222'").get()).toEqual({import_contract_revision: 0});
+            const referenceStatusResult = await createSqliteCardReferenceRepository(db).summarizeReferenceSupport();
+            if (referenceStatusResult.isErr()) throw new Error(referenceStatusResult.error.message);
+            const referenceStatus = referenceStatusResult.value;
+            expect(referenceStatus.ready).toBe(false);
+            expect(referenceStatus.reimportRequired).toEqual(["oracle_cards"]);
+            const identityColumns = db.$client.query<{
+                name: string;
+                notnull: number;
+                dflt_value: string | null
+            }, []>("PRAGMA table_info(card_identity)").all();
+            const overrideKind = identityColumns.find((column) => column.name === "copy_limit_override_kind");
+            expect(overrideKind).toEqual(expect.objectContaining({notnull: 1, dflt_value: null}));
+            expect(() => db.run(sql.raw("UPDATE card_identity SET copy_limit_override_kind = 'none', copy_limit_override_maximum = 1"))).toThrow();
+            expect(() => db.run(sql.raw("UPDATE card_identity SET copy_limit_override_kind = 'maximum', copy_limit_override_maximum = 0"))).toThrow();
+            expect(() => db.run(sql.raw("UPDATE deck_candidate_card SET section = 'deck'"))).toThrow();
+            expect(db.$client.query("PRAGMA foreign_key_check").all()).toEqual([]);
+        } finally {
+            closeDatabase(db);
+        }
+    });
+
     test("0003 preserves dependent rows while making game_changer required", () => {
         const dbPath = join(mkdtempSync(join(tmpdir(), "tomekin-migration-0003-")), "test.sqlite");
         const db = openDatabase(dbPath, {log: testLog});
@@ -62,7 +144,10 @@ function runMigrationSql(db: ReturnType<typeof openDatabase>, migrationUrl: URL)
     } catch (error) {
         db.run(sql`ROLLBACK`);
         db.run(sql`PRAGMA foreign_keys = ON`);
-        throw error;
+        const cause = error instanceof Error && "cause" in error ? (error as Error & {
+            cause?: unknown
+        }).cause : undefined;
+        throw cause instanceof Error ? new Error(`${error instanceof Error ? error.message : String(error)}: ${cause.message}`) : error;
     }
 }
 

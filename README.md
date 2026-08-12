@@ -1,15 +1,16 @@
 # Tomekin
 
-Local, collection-first Commander deck-building through opencode.
+Local, collection-first MTG deck-building through opencode.
 
-This alpha helps you turn a ManaBox Collection export plus local Scryfall reference data into validated Commander Deck
-Candidates. It runs on your machine, stores data in local SQLite, and exposes deck-building actions through a project-local
-opencode agent and custom tools.
+This alpha helps you turn a ManaBox Collection export plus local Scryfall reference data into validated Commander/EDH
+and paper-first 60-card Constructed Deck Candidates. It runs on your machine, stores data in local SQLite, and exposes
+deck-building actions through a project-local opencode agent and custom tools.
 
-## Alpha Status
+## Project Status
 
-This is a public alpha. The distribution model is intentionally clone-based: clone the repo,
-install dependencies, sync Scryfall data, import your collection, open opencode, and use the local deck-building agent.
+The public alpha remains intentionally clone-based: clone the repo, install dependencies, sync Scryfall data, import
+your collection, open opencode, and use the local deck-building agent. Development after the MVP milestone is tracked as
+post-MVP evolution rather than as unfinished MVP work.
 
 The project is not packaged for npm, does not include an installer, and does not provide hosted sync or hosted deck-building
 services yet.
@@ -37,7 +38,8 @@ opencode
 ```
 
 In opencode, select or invoke the local deck-building agent from `.opencode/agents/tomekin-deck-builder.md` and ask for a
-Commander deck. The agent uses project-local tools and does not make hidden live Scryfall calls during normal deck-building.
+Commander, Standard, Pioneer, Modern, Legacy, Vintage, Pauper, or Casual 60 deck. The agent uses project-local tools and
+does not make hidden live Scryfall or metagame calls during normal deck-building.
 
 Run `bun run db:sqlite:migration:apply` before normal app commands. It creates the parent directory for the configured
 SQLite database path and applies migrations from `packages/sqlite/drizzle/`.
@@ -132,22 +134,30 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
 - Local SQLite persistence for Scryfall reference data, Collection snapshots, and saved Deck Candidates.
 - Explicit Scryfall bulk sync for `oracle_cards`, `all_cards`, and `oracle_tags`.
 - ManaBox Collection CSV import with blocking validation and non-destructive failed imports.
-- Commander/EDH-focused opencode deck-building agent with deterministic local tools.
+- Format-aware opencode deck-building agent with deterministic local tools and researched 60-card construction guidance.
+- Collection Opportunity discovery across all supported Formats, with ranked viable directions before full construction.
 - Commander Existing Deck tuning: review proposed additions, identify paired cuts, or diagnose open-ended improvements
   within an explicitly stated Addition Pool.
-- Card search, card identity lookup, Oracle Tag lookup, Commander legality validation, deck rendering, and Deck Candidate
-  persistence tools.
+- 60-card Existing Deck tuning with an explicit focused-repair, rebuild-around-identity, or fresh-construction gate.
+- Card search, card identity lookup, Oracle Tag lookup, Format legality validation, deck rendering, and Deck Candidate
+  persistence tools for Commander/EDH and the supported 60-card Formats.
+- Optional 60-card Sideboards when requested, with matchup context or explicit general-purpose assumptions.
 - Structured local logging for CLI commands, SQLite queries, imports, sync, and opencode tool calls.
 
 ## Known Limitations
 
-- Commander/EDH is the only supported deck-building format in the current agent workflow.
 - Collection-aware deck-building depends on an imported ManaBox CSV snapshot; there is no collection write-back.
 - Normal deck-building is local/offline and will not fetch missing Scryfall data automatically.
+- Normal 60-card deck-building has no live metagame feed; Sideboard recommendations depend on user-supplied context or
+  clearly stated general-purpose assumptions.
 - No npm package, installer, hosted UI, or plugin marketplace packaging is provided in this alpha.
 - Prices, exhaustive combo detection, and live LLM evaluation are out of scope for the default local tools.
 - Deck-tuning recommendations are reasoned proposals, not deterministic optimality guarantees; prices and budgeted
   purchase recommendations are not yet supported.
+- Deck Opportunity shortlists are transient in the current agent workflow; durable Deck Opportunity persistence remains
+  future work.
+- Collection Location allow-list enforcement is procedural until the Deck Building Brief and evaluator gain a structured
+  Collection Access Policy.
 
 ## Development Commands
 
@@ -165,7 +175,7 @@ bun run typecheck
 
 - [`CONTEXT.md`](./CONTEXT.md): canonical glossary and domain language.
 - [`docs/product-scope.md`](./docs/product-scope.md): product promise, scope boundaries, format direction, and non-goals.
-- [`docs/mvp.md`](./docs/mvp.md): MVP workflow, deck-building behaviour, capability boundaries, and output expectations.
+- [`docs/mvp.md`](./docs/mvp.md): achieved MVP baseline, workflow, capability boundaries, and output expectations.
 - [`docs/architecture.md`](./docs/architecture.md): architecture direction, portability philosophy, and unresolved technology decisions.
 - [`docs/data-model.md`](./docs/data-model.md): persisted records and relationships for the MVP data model.
 - [`docs/testing.md`](./docs/testing.md): testing posture, TDD expectations, test layers, fixture guidance, and LLM test boundary.
@@ -174,6 +184,6 @@ bun run typecheck
 
 ## Future Direction
 
-Likely post-alpha work includes friendlier setup checks, packaging around stable commands, broader Collection-aware deck
-building behaviour, richer candidate review, and eventually additional interfaces over the same portable core. Hosted
-deployment and npm packaging remain future possibilities, not alpha promises.
+Current post-MVP work includes continued improvement of Collection-aware deck building and possible expansion beyond the
+currently supported Formats. Friendlier setup checks, packaging around stable commands, and additional interfaces over
+the same portable core remain future possibilities, not alpha promises.

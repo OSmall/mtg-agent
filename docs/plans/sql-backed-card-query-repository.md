@@ -1,5 +1,10 @@
 # SQL-backed Card Query Repository Plan
 
+## Status
+
+The SQL-backed repository was delivered as part of the Commander-first MVP milestone on 14 July 2026. This retained plan
+records the query semantics and implementation handoff.
+
 This plan is the implementation handoff for replacing the current SQLite Card Query repository. It records the design
 decisions from the grilling session so another agent can implement without re-litigating the query semantics.
 

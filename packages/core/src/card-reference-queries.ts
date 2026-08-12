@@ -1,14 +1,15 @@
 import {err, ok, type Result} from "neverthrow";
 import type {
-  CardIdentity,
-  CardIdentityFormatLegality,
-  CardIdentityPart,
-  CardIdentityTag,
-  CardIdentityTagAlias,
-  CardIdentityTagging,
-  ScryfallBulkDataImport,
-  ScryfallBulkDataType,
+    CardIdentity,
+    CardIdentityFormatLegality,
+    CardIdentityPart,
+    CardIdentityTag,
+    CardIdentityTagging,
+    ScryfallBulkDataImport,
+    ScryfallBulkDataType,
 } from "./scryfall-sync";
+import {requiredScryfallImportContractRevisions} from "./scryfall-sync";
+import {DeckFormatSchema} from "./deck-building-brief";
 
 export type CardReferenceRepositoryError = {
   readonly type: "repository_error" | "not_found";
@@ -42,6 +43,7 @@ export type ReferenceDataStatus = {
   readonly required: readonly ScryfallBulkDataType[];
   readonly imports: readonly ScryfallBulkDataImport[];
   readonly missing: readonly ScryfallBulkDataType[];
+    readonly reimportRequired: readonly ScryfallBulkDataType[];
   readonly warnings: readonly string[];
   readonly ready: boolean;
 };
@@ -56,14 +58,33 @@ export type CardReferenceRepository = {
 
 export function summarizeReferenceImports(imports: readonly ScryfallBulkDataImport[], now = new Date()): ReferenceDataStatus {
   const required = ["oracle_cards", "all_cards", "oracle_tags"] as const;
-  const successful = new Set(imports.filter((item) => item.status === "succeeded").map((item) => item.bulkDataType));
-  const missing = required.filter((type) => !successful.has(type));
+    const latestSuccessful = new Map<ScryfallBulkDataType, ScryfallBulkDataImport>();
+    for (const item of imports.filter((candidate) => candidate.status === "succeeded")) {
+        const previous = latestSuccessful.get(item.bulkDataType);
+        if (!previous || importSortTimestamp(item) > importSortTimestamp(previous)) latestSuccessful.set(item.bulkDataType, item);
+    }
+    const missing = required.filter((type) => !latestSuccessful.has(type));
+    const reimportRequired = required.filter((type) => {
+        const imported = latestSuccessful.get(type);
+        return imported !== undefined && imported.importContractRevision !== requiredScryfallImportContractRevisions[type];
+    });
   const warnings: string[] = [];
   for (const item of imports.filter((candidate) => candidate.status === "succeeded" && candidate.sourceUpdatedAt !== null)) {
     const ageDays = (now.getTime() - item.sourceUpdatedAt!.getTime()) / 86_400_000;
     if (ageDays > 14) warnings.push(`${item.bulkDataType} reference data is ${Math.floor(ageDays)} days old; refresh if current external facts matter.`);
   }
-  return {required, imports, missing, warnings, ready: missing.length === 0};
+    return {
+        required,
+        imports,
+        missing,
+        reimportRequired,
+        warnings,
+        ready: missing.length === 0 && reimportRequired.length === 0
+    };
+}
+
+function importSortTimestamp(item: ScryfallBulkDataImport): number {
+    return (item.completedAt ?? item.startedAt).getTime();
 }
 
 export function filterCardIdentities(
@@ -89,9 +110,22 @@ export function filterCardIdentities(
 }
 
 export function getFormatConstraints(format = "commander") {
-  if (format !== "commander") {
+    const parsed = DeckFormatSchema.safeParse(format);
+    if (!parsed.success) {
     return err({type: "not_found", message: `Unsupported format: ${format}.`} as const);
   }
+    if (parsed.data !== "commander") {
+        return ok({
+            format: parsed.data,
+            mainboardMinimum: 60,
+            mainboardMaximum: null,
+            sideboardMaximum: 15,
+            ordinaryCopyLimit: 4,
+            basicLandsExempt: true,
+            copyLimitOverrides: true,
+            usesScryfallLegality: parsed.data !== "casual_60",
+        });
+    }
   return ok({
     format: "commander" as const,
     deckSizeIncludingCommanders: 100,

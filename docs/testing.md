@@ -123,7 +123,13 @@ ManaBox import tests should use small package-local fixtures and must not call l
 
 Scryfall sync should have its own tested done bar before ManaBox Collection import is considered complete.
 
-Scryfall sync tests should prove successful and failed `ScryfallBulkDataImport` attempts are recorded, failed sync preserves the last usable dataset, `oracle_cards` imports before `all_cards`, `all_cards` rows reference existing `CardIdentity` rows, and operations that need card identity fail clearly when required Scryfall datasets are missing.
+Scryfall sync tests should prove successful and failed `ScryfallBulkDataImport` attempts are recorded, failed sync
+preserves the last usable dataset, `oracle_cards` imports before `all_cards`, `all_cards` rows reference existing
+`CardIdentity` rows, and operations that need card identity fail clearly when required Scryfall datasets are missing or
+use an incompatible Import Contract Revision. Oracle Cards coverage should include required supported-Format legality
+rows and accepted and rejected Copy Limit Override wording. Repository coverage should prove equivalent duplicate Card
+Printing records import once while conflicting duplicates reject the import without replacing the previous usable
+dataset.
 
 Scryfall sync tests should use small package-local Scryfall fixtures, not real Scryfall bulk data files. Real Scryfall bulk files are too large for ordinary tests and must not be required by `bun test`.
 
@@ -147,7 +153,29 @@ The default test suite should not call live LLMs.
 
 Test deterministic prompt inputs, retrieved context, service outputs, and rendered artifacts with normal tests. Live LLM evaluation should be explicit, separate from `bun test`, and used only when intentionally assessing model behaviour.
 
-LLM-produced recommendations should be treated as proposals until deterministic services validate card identity, Collection status, Availability, Portable Decklist format, and Commander legality where local data supports those checks. Failed validation should produce structured failures or revision requests.
+LLM-produced recommendations should be treated as proposals until deterministic services validate card identity,
+Collection status, Availability, Portable Decklist format, and Format legality where local data supports those checks.
+Failed validation should produce structured failures or revision requests.
+
+60-card Constructed coverage remains deterministic: strict Brief and candidate schemas, the supported Format matrix,
+Mainboard and Sideboard shape, cross-section copy limits and exceptions, sanctioned legality and Casual 60, Vintage
+restriction precedence, reference readiness, Card Query, exact Portable Decklists, persistence, public tool wrappers,
+and agent-routing configuration. The source-backed methodology is exercised manually before release; live-agent quality
+evaluation remains outside the default suite.
+
+## Deck-Building Workflow Scenario Evaluation
+
+Collection Opportunity discovery, fresh 60-card construction, and 60-card tuning use the versioned manual corpus in
+[`testing/deck-building-workflow-scenarios.md`](./testing/deck-building-workflow-scenarios.md). The scenarios assert
+acceptable-behaviour invariants rather than exact card lists.
+
+The reference qualitative run uses Sol at a recorded fixed reasoning effort. A Terra comparison is meaningful only at
+the same effort and after Sol passes. Model results are diagnostic: they do not run under `bun test`, use an LLM judge,
+or create a CI score threshold.
+
+Critical failures include Collection-scope leakage, deterministic illegality, fabricated playtesting or live facts, a
+padded Deck Opportunity shortlist, conflating selection with net card advantage, unexamined curve or mana claims,
+retaining weak cards solely for theme, and persistence before the required confirmation.
 
 ## Future Deck Tuning Scenario Evaluation
 

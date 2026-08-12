@@ -1,6 +1,7 @@
 # Future Direction
 
-This document captures known directions that are intentionally outside the MVP or not yet designed in detail. These items should not be treated as current requirements unless a later decision promotes them into scope.
+This document captures known directions outside the achieved MVP baseline or not yet designed in detail. These items
+should not be treated as current requirements unless a later decision promotes them into scope.
 
 ## Collection Import
 
@@ -14,7 +15,8 @@ More specialised import/export formats may be needed later for exact collection 
 
 ## Adjacent Card Groups
 
-Sideboards, maybeboards, considering boards, upgrade boards, and budget alternative boards are future scope.
+The supported 60-card Constructed workflow can build a Sideboard when the user requests one. Maybeboards, considering
+boards, upgrade boards, and budget alternative boards remain separate future scope.
 
 The MVP Portable Decklist should remain final-deck-only. Future work may introduce separate structures for adjacent card groups without polluting the importable decklist.
 
@@ -26,11 +28,28 @@ Future work may add versioning, undo, historical revision browsing, or compariso
 
 Future persistence work may also retain historical Collection snapshots. The MVP only needs import timestamps for freshness checks.
 
+Future persistence work may introduce a first-class `DeckBuildingProject` (or equivalent deck-building task aggregate)
+that owns the Format, confirmed Deck Building Brief revisions, and Collection provenance. Multiple Deck Candidates could
+reference the exact Brief revision they were built against instead of each embedding an independently mutable copy. This
+would make the distinction between requested intent and produced candidates explicit, while supporting variants,
+iteration, and historical comparison. The 60-card Constructed feature should keep the current embedded Brief model and
+make only the minimal duplication cleanup needed for strict multi-format support.
+
+Structured Deck Candidate data should become the source of truth for rendering. Future persistence work should reduce or
+remove the current full Markdown snapshot, especially the duplicated Portable Decklist, and render derived Markdown and
+decklist text from Deck Candidate fields and card rows instead of trusting previously saved agent-authored text. Only
+analysis that cannot be derived from the structured candidate should need its own persisted representation. This
+redesign is deferred from the 60-card Constructed feature.
+
 ## Rules Judging
 
 The MVP requires rules awareness, not full rules judging.
 
 Future work may add deeper rules support, including comprehensive rule citations, detailed interaction adjudication, and judge-style explanations.
+
+Legality Assessments currently use descriptive free-text reasons and warnings because the agent can consume them
+directly. Future work may introduce stable structured finding codes and typed context when a concrete UI, analytics,
+localization, or automated-remediation consumer needs them.
 
 ## Meta Analysis
 
@@ -58,13 +77,32 @@ Future work may add a richer user interface over saved opportunities, deck candi
 
 Future UI work may parse or wrap the MVP's structured Markdown output. Stable headings, sections, and repeated fields in MVP output are intended to keep that path open without defining UI architecture now.
 
+## Agent Quality Evaluation
+
+The default automated suite remains deterministic. Tomekin now keeps a versioned manual Deck Opportunity,
+fresh-construction, and tuning scenario corpus outside `bun test`, with deterministic legality and Collection-scope
+gates plus human review of behavioural invariants.
+
+Future work may add an opt-in runner around that corpus. Do not introduce a separate judging agent, LLM-as-judge score,
+or CI threshold without evidence that the added machinery produces reliable decisions.
+
+## Agent Context Efficiency
+
+The current workflow uses bounded staged Card Queries and hydrates detailed tag or physical-copy evidence only for
+shortlists. Follow-on compact projections, pagination, recoverable truncation, stored working-candidate identifiers, and
+lifecycle payload deduplication are recorded in
+[`plans/agent-context-efficiency.md`](./plans/agent-context-efficiency.md).
+
 ## Format Expansion
 
-The MVP emphasises Commander/EDH while preserving a path to other formats.
+Tomekin supports Commander/EDH and the paper-first 60-card Constructed family: Standard, Pioneer, Modern, Legacy,
+Vintage, Pauper, and Casual 60. The 60-card workflow includes Format-specific construction and legality, optional
+requested Sideboards, and a researched agent methodology for building cohesive decks. Detailed settled scope and
+implementation history are recorded in [`plans/60-card-constructed.md`](./plans/60-card-constructed.md).
 
-Future work may add deeper support for 60-card formats, including format-specific legality, sideboards, meta expectations, power calibration, and deck construction conventions.
-
-Project language and requirements should remain format-extensible so later work can support other MTG formats without rewriting the product concept.
+Project language and requirements should remain Format-extensible so later work can support other MTG Formats without
+rewriting the product concept. Additional Formats, Arena-first workflows, and live metagame services remain future work
+unless separately promoted into scope.
 
 ## Protected Collection Metadata
 
@@ -76,7 +114,8 @@ Future protected-card workflows may cover sentimental, display, trade, high-valu
 
 ## Technology And Architecture
 
-The MVP will start as local opencode tooling over a TypeScript portable core running on Bun. This keeps the first implementation quick while preserving a path to a later web-based, multi-user hosted product.
+The MVP was delivered as local opencode tooling over a TypeScript portable core running on Bun. That kept the first
+implementation small while preserving a path to a later web-based, multi-user hosted product.
 
 Database, AI model provider, repository architecture, user interface shape, hosting, and deployment strategy remain otherwise deferred.
 

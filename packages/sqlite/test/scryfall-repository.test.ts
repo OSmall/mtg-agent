@@ -10,6 +10,7 @@ import {
     CardIdentityTagImportRecordSchema,
     type CardPrintingImportRecord,
     CardPrintingImportRecordSchema,
+    createScryfallLocalImportServices,
     createScryfallSyncServices,
     createTestRootLoggerFromEnv,
     mapRawScryfallAllCardToCardPrintingImportRecord,
@@ -17,7 +18,8 @@ import {
     mapRawScryfallOracleTagToCardIdentityTagImportRecord,
     RawScryfallAllCardSchema,
     RawScryfallOracleCardSchema,
-    RawScryfallOracleTagSchema
+    RawScryfallOracleTagSchema,
+    requiredScryfallImportContractRevisions,
 } from "@tomekin/core";
 import {
     applySqliteMigrations,
@@ -40,6 +42,7 @@ describe("SQLite Scryfall repository", () => {
     expect(result.value.id).toMatch(uuidV7Pattern);
     expect(result.value.status).toBe("succeeded");
     expect(result.value.bulkDataType).toBe("oracle_cards");
+      expect(result.value.importContractRevision).toBe(requiredScryfallImportContractRevisions.oracle_cards);
     expect(result.value.importedRecordCount).toBe(8);
 
     const imported = await repository.listCardIdentities();
@@ -53,6 +56,7 @@ describe("SQLite Scryfall repository", () => {
         manaValue: 1,
         typeLine: "Artifact",
         oracleText: "{T}: Add {C}{C}.",
+          copyLimitOverride: {kind: "none"},
         colorIdentity: "",
         sourcePageUri: expect.stringContaining("scryfall.com/card/"),
       }),
@@ -108,6 +112,30 @@ describe("SQLite Scryfall repository", () => {
     if (attempts.isErr()) throw new Error(attempts.error.message);
     expect(attempts.value.map((attempt) => attempt.status)).toEqual(["succeeded"]);
   });
+
+    test("unsupported Copy Limit Override wording fails without replacing the previous Oracle Cards dataset", async () => {
+        const repository = createTestRepository();
+        const rawCards = await readFixture("oracle-cards-minimal.json", RawScryfallOracleCardSchema.array());
+        expect((await repository.importCardIdentities(importInput(rawCards.map(mapRawScryfallOracleCardToCardIdentityImportRecord)))).isOk()).toBe(true);
+        const services = createScryfallLocalImportServices(repository, {now: () => new Date("2025-01-02T00:00:00.000Z")});
+        const badCard = {
+            ...rawCards[0],
+            name: "Future Colony",
+            oracle_text: "Your deck may contain as many cards named Future Colony as you like.",
+        };
+
+        const failed = await services.importOracleCards({
+            stream: () => new Response(JSON.stringify([badCard])).body!,
+        }, {sourceUri: "fixture://unsupported-copy-limit"});
+
+        expect(failed.isErr()).toBe(true);
+        if (failed.isOk()) throw new Error("expected import failure");
+        expect(failed.error.message).toContain("unsupported potential Copy Limit Override wording");
+        const identities = await repository.listCardIdentities();
+        if (identities.isErr()) throw new Error(identities.error.message);
+        expect(identities.value.map((identity) => identity.name)).toContain("Sol Ring");
+        expect(identities.value.map((identity) => identity.name)).not.toContain("Future Colony");
+    });
 
   test("failed oracle_cards import records failure and preserves previous Card Identity dataset", async () => {
     const repository = createTestRepository();
@@ -200,6 +228,113 @@ describe("SQLite Scryfall repository", () => {
         }),
     );
   });
+
+    test("all_cards import accepts equivalent duplicate Card Printing records once", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+
+        const result = await repository.importCardPrintings(
+            importInput([...printings, printings[0]]),
+        );
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) throw new Error(result.error.message);
+        expect(result.value.importedRecordCount).toBe(printings.length);
+
+        const imported = await repository.listCardPrintings();
+        expect(imported.isOk()).toBe(true);
+        if (imported.isErr()) throw new Error(imported.error.message);
+        expect(imported.value).toHaveLength(printings.length);
+    });
+
+    test("all_cards import rejects conflicting duplicate Card Printing records without replacing the previous dataset", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+        expect((await repository.importCardPrintings(importInput(printings))).isOk()).toBe(true);
+        const conflicting = {
+            ...printings[0],
+            printing: {...printings[0].printing, setCode: "conflict"},
+        };
+
+        const result = await repository.importCardPrintings(
+            importInput([...printings, conflicting]),
+        );
+
+        expect(result.isErr()).toBe(true);
+        if (result.isOk()) throw new Error("expected conflicting duplicate import to fail");
+        expect(result.error.message).toContain("conflicting Card Printing ID");
+        expect(result.error.message).toContain(printings[0].printing.id);
+
+        const imported = await repository.listCardPrintings();
+        expect(imported.isOk()).toBe(true);
+        if (imported.isErr()) throw new Error(imported.error.message);
+        expect(imported.value).toContainEqual(
+            expect.objectContaining({
+                id: printings[0].printing.id,
+                setCode: printings[0].printing.setCode,
+            }),
+        );
+    });
+
+    test("all_cards import rejects a duplicate Card Printing ID with different finishes", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const [printing] = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+
+        const result = await repository.importCardPrintings(
+            importInput([
+                printing,
+                {...printing, printing: {...printing.printing, finishes: ["nonfoil"]}},
+            ]),
+        );
+
+        expect(result.isErr()).toBe(true);
+        if (result.isOk()) throw new Error("expected conflicting duplicate import to fail");
+        expect(result.error.message).toContain(`conflicting Card Printing ID ${printing.printing.id}`);
+    });
+
+    test("all_cards import rejects a duplicate Card Printing ID with different printing parts", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        const printing = printings.find((candidate) => candidate.parts.length > 0);
+        if (!printing) throw new Error("expected a printing with parts in the fixture");
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+
+        const result = await repository.importCardPrintings(
+            importInput([
+                printing,
+                {
+                    ...printing,
+                    parts: [
+                        {...printing.parts[0], printedText: "conflicting printed text"},
+                        ...printing.parts.slice(1),
+                    ],
+                },
+            ]),
+        );
+
+        expect(result.isErr()).toBe(true);
+        if (result.isOk()) throw new Error("expected conflicting duplicate import to fail");
+        expect(result.error.message).toContain(`conflicting Card Printing ID ${printing.printing.id}`);
+    });
 
   test("all_cards derives reversible_card Card Identity from a single face oracle_id", async () => {
     const repository = createTestRepository();
@@ -542,8 +677,8 @@ describe("SQLite Scryfall repository", () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isOk()) throw new Error("expected missing datasets");
-    expect(result.error.type).toBe("missing_required_scryfall_datasets");
-    if (result.error.type !== "missing_required_scryfall_datasets") {
+      expect(result.error.type).toBe("reference_data_unready");
+      if (result.error.type !== "reference_data_unready") {
       throw new Error("expected missing dataset error");
     }
     expect(result.error.missingBulkDataTypes).toEqual(["oracle_cards", "all_cards"]);

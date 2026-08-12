@@ -1,14 +1,23 @@
 ---
 name: commander-deck-architecture
-description: Use after a Commander/EDH Deck Building Brief is confirmed to architect a synergistic Commander Deck Candidate with Tomekin tools, tag-aware package discovery, role-density targets, and supported validation passes.
+description: Use after a Commander/EDH Deck Building Brief and either a commander or selected Deck Opportunity are confirmed to architect a synergistic Commander Deck Candidate with Tomekin tools, tag-aware package discovery, role-density targets, and supported validation passes.
 ---
 
 # Commander Deck Architecture
 
-Use this methodology after the `tomekin-deck-building` skill has confirmed a Commander/EDH Deck Building Brief. This skill
-is
-the canonical Commander construction method. It does not replace `tomekin-deck-building` for tool orchestration, legality
+Use this methodology after the `tomekin-deck-building` skill has confirmed a Commander/EDH Deck Building Brief and the
+user has chosen a commander or selected a Deck Opportunity from `collection-opportunity-discovery`. This skill is the
+canonical Commander construction method. It does not replace `tomekin-deck-building` for tool orchestration, legality
 validation, rendering, or persistence.
+
+When discovery hands off a selected Deck Opportunity:
+
+- Treat its commander or other Format Anchor, functional game plan, expected play pattern, key Collection-supported
+  packages, and stated caveats as the construction starting point.
+- Preserve the confirmed `(locationType, locationName)` Collection allow-list unchanged in every Collection query and
+  the final Availability recheck.
+- Research and refine the opportunity during construction, but do not silently replace its identity or ignore a
+  viability caveat. Ask before making a materially different deck.
 
 ## Core Principle
 
@@ -157,6 +166,7 @@ Required checks outside this methodology skill:
 - Resolve final names with `resolve_decklist_cards`.
 - Validate Commander construction with `validate_format_legality`.
 - Run `evaluate_deck_candidate` for legality, Game Changers, mana curve, land count, and Collection evidence.
+- Recheck final Availability with the same confirmed Collection Location allow-list before rendering.
 - Revise weak areas for up to three full evaluation passes.
 - Render and save only after the final list resolves cleanly and caveats are represented in Markdown.
 

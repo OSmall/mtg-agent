@@ -1,7 +1,9 @@
 import type {DeckCandidate, DeckCandidateCard} from "./deck-candidate";
+import type {DeckFormat} from "./deck-building-brief";
 
 export type RenderDeckCandidateInput = {
   readonly label: string;
+    readonly format: DeckFormat;
   readonly cards: readonly DeckCandidateCard[];
   readonly sections?: Partial<Record<DeckCandidateMarkdownSection, string>> | undefined;
 };
@@ -22,14 +24,20 @@ export const deckCandidateMarkdownSections = [
 ] as const;
 export type DeckCandidateMarkdownSection = (typeof deckCandidateMarkdownSections)[number];
 
-export function renderPortableDecklist(cards: readonly DeckCandidateCard[]): string {
-  const commander = renderDecklistSection("Commander", cards.filter((card) => card.section === "commander"));
-  const deck = renderDecklistSection("Deck", cards.filter((card) => card.section === "deck"));
-  return `${commander}\n\n${deck}`;
+export function renderPortableDecklist(format: DeckFormat, cards: readonly DeckCandidateCard[]): string {
+    const mainboard = renderDecklistSection("Mainboard", cards.filter((card) => card.section === "mainboard"));
+    if (format === "commander") {
+        const commander = renderDecklistSection("Commander", cards.filter((card) => card.section === "commander"));
+        return `${commander}\n\n${mainboard}`;
+    }
+    const sideboardCards = cards.filter((card) => card.section === "sideboard");
+    return sideboardCards.length === 0
+        ? mainboard
+        : `${mainboard}\n\n${renderDecklistSection("Sideboard", sideboardCards)}`;
 }
 
 export function renderDeckCandidateMarkdown(input: RenderDeckCandidateInput): string {
-  const portable = renderPortableDecklist(input.cards);
+    const portable = renderPortableDecklist(input.format, input.cards);
   const sections = input.sections ?? {};
   const body = deckCandidateMarkdownSections.map((section) => {
     const content = section === "Portable Decklist"
@@ -43,7 +51,7 @@ export function renderDeckCandidateMarkdown(input: RenderDeckCandidateInput): st
 export function renderSavedDeckCandidate(candidate: DeckCandidate): {readonly markdown: string; readonly portableDecklist: string} {
   return {
     markdown: candidate.markdown,
-    portableDecklist: renderPortableDecklist(candidate.cards),
+      portableDecklist: renderPortableDecklist(candidate.format, candidate.cards),
   };
 }
 

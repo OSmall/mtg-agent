@@ -1,5 +1,10 @@
 # Oracle Tags Import Plan
 
+## Status
+
+The initial Oracle Tags import was delivered as part of the Commander-first MVP milestone on 14 July 2026. This retained
+plan records the import contract and implementation boundary.
+
 This plan defines the first implementation slice for importing Scryfall `oracle_tags` bulk data into the local card-reference store.
 
 ## Goal

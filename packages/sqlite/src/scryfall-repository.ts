@@ -23,7 +23,7 @@ import type {
   ScryfallRepository,
   ScryfallRepositoryError,
 } from "@tomekin/core";
-import {CardIdentityLayoutSchema} from "@tomekin/core";
+import {CardIdentityLayoutSchema, requiredScryfallImportContractRevisions} from "@tomekin/core";
 
 import type {TomekinDatabase} from "./database";
 import {
@@ -93,6 +93,8 @@ export function createSqliteScryfallRepository(
             mana_value REAL NOT NULL,
             type_line TEXT NOT NULL,
             oracle_text TEXT,
+            copy_limit_override_kind TEXT NOT NULL,
+            copy_limit_override_maximum INTEGER,
             color_identity TEXT NOT NULL,
             colors TEXT,
             color_indicator TEXT,
@@ -145,6 +147,8 @@ export function createSqliteScryfallRepository(
             mana_value,
             type_line,
             oracle_text,
+            copy_limit_override_kind,
+            copy_limit_override_maximum,
             color_identity,
             colors,
             color_indicator,
@@ -157,7 +161,7 @@ export function createSqliteScryfallRepository(
             edhrec_rank,
             game_changer,
             source_page_uri)
-          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
         `);
         const insertIdentityPart = db.$client.prepare(`
           INSERT INTO import_card_identity_part (card_identity_id,
@@ -192,6 +196,8 @@ export function createSqliteScryfallRepository(
               identity.manaValue,
               identity.typeLine,
               identity.oracleText,
+                identity.copyLimitOverride.kind,
+                identity.copyLimitOverride.kind === "maximum" ? identity.copyLimitOverride.maximum : null,
               identity.colorIdentity,
                 identity.colors,
                 identity.colorIndicator,
@@ -276,6 +282,8 @@ export function createSqliteScryfallRepository(
               mana_value,
               type_line,
               oracle_text,
+              copy_limit_override_kind,
+              copy_limit_override_maximum,
               color_identity,
               colors,
               color_indicator,
@@ -297,6 +305,8 @@ export function createSqliteScryfallRepository(
               mana_value,
               type_line,
               oracle_text,
+              copy_limit_override_kind,
+              copy_limit_override_maximum,
               color_identity,
               colors,
               color_indicator,
@@ -318,6 +328,8 @@ export function createSqliteScryfallRepository(
               mana_value = excluded.mana_value,
               type_line = excluded.type_line,
               oracle_text = excluded.oracle_text,
+              copy_limit_override_kind = excluded.copy_limit_override_kind,
+              copy_limit_override_maximum = excluded.copy_limit_override_maximum,
               color_identity = excluded.color_identity,
                                              colors = excluded.colors,
                                              color_indicator = excluded.color_indicator,
@@ -453,6 +465,7 @@ export function createSqliteScryfallRepository(
             cardmarket_id,
             source_page_uri)
           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+          ON CONFLICT(id) DO NOTHING
         `);
           const insertPrintingFinish = db.$client.prepare(`
           INSERT INTO import_card_printing_finish (card_printing_id, finish)
@@ -475,7 +488,7 @@ export function createSqliteScryfallRepository(
         try {
           for await (const record of input.records) {
             const {printing, parts} = record;
-            insertPrinting.run(
+            const inserted = insertPrinting.run(
                 printing.id,
                 printing.cardIdentityId,
                 printing.layout,
@@ -487,6 +500,55 @@ export function createSqliteScryfallRepository(
                 printing.cardmarketId,
                 printing.sourcePageUri,
             );
+            if (inserted.changes === 0) {
+              const [stagedPrinting] = db.all<StagedCardPrintingRow>(sql`
+                SELECT id,
+                       card_identity_id AS cardIdentityId,
+                       layout,
+                       printed_name     AS printedName,
+                       set_code         AS setCode,
+                       collector_number AS collectorNumber,
+                       language,
+                       tcgplayer_id     AS tcgplayerId,
+                       cardmarket_id    AS cardmarketId,
+                       source_page_uri  AS sourcePageUri
+                FROM import_card_printing
+                WHERE id = ${printing.id}
+              `);
+              const stagedFinishes = db.all<{ readonly finish: string }>(sql`
+                SELECT finish
+                FROM import_card_printing_finish
+                WHERE card_printing_id = ${printing.id}
+                ORDER BY finish
+              `).map((row) => row.finish);
+              const stagedParts = db.all<StagedCardPrintingPartRow>(sql`
+                SELECT card_printing_id  AS cardPrintingId,
+                       part_index        AS partIndex,
+                       printed_name      AS printedName,
+                       flavor_name       AS flavorName,
+                       printed_type_line AS printedTypeLine,
+                       printed_text      AS printedText,
+                       flavor_text       AS flavorText,
+                       artist,
+                       artist_id         AS artistId,
+                       illustration_id   AS illustrationId,
+                       image_uris_json   AS imageUrisJson
+                FROM import_card_printing_part
+                WHERE card_printing_id = ${printing.id}
+                ORDER BY part_index
+              `);
+              if (
+                  !stagedPrinting
+                  || !sameStagedCardPrinting(stagedPrinting, printing)
+                  || !sameStringValues(stagedFinishes, printing.finishes)
+                  || !sameStagedCardPrintingParts(stagedParts, parts)
+              ) {
+                throw importRejection([
+                  `all_cards import contains conflicting Card Printing ID ${printing.id}.`,
+                ]);
+              }
+              continue;
+            }
               for (const finish of printing.finishes) {
                   insertPrintingFinish.run(printing.id, finish);
               }
@@ -1027,6 +1089,7 @@ function insertImportRecord<TRecord>(
   const imported: ScryfallBulkDataImport = {
     id: randomUUIDv7("hex", input.startedAt.getTime()),
     bulkDataType,
+      importContractRevision: requiredScryfallImportContractRevisions[bulkDataType],
     status,
     startedAt: input.startedAt,
     completedAt: input.completedAt,
@@ -1041,6 +1104,7 @@ function insertImportRecord<TRecord>(
     .values({
       id: imported.id,
       bulkDataType: imported.bulkDataType,
+        importContractRevision: imported.importContractRevision,
       status: imported.status,
       startedAt: imported.startedAt,
       completedAt: imported.completedAt,
@@ -1106,6 +1170,91 @@ function importRejection(blockingErrors: readonly string[]): Error {
   return error;
 }
 
+type StagedCardPrintingRow = {
+  readonly id: string;
+  readonly cardIdentityId: string;
+  readonly layout: string;
+  readonly printedName: string | null;
+  readonly setCode: string;
+  readonly collectorNumber: string;
+  readonly language: string;
+  readonly tcgplayerId: number | null;
+  readonly cardmarketId: number | null;
+  readonly sourcePageUri: string;
+};
+
+type StagedCardPrintingPartRow = {
+  readonly cardPrintingId: string;
+  readonly partIndex: number;
+  readonly printedName: string | null;
+  readonly flavorName: string | null;
+  readonly printedTypeLine: string | null;
+  readonly printedText: string | null;
+  readonly flavorText: string | null;
+  readonly artist: string | null;
+  readonly artistId: string | null;
+  readonly illustrationId: string | null;
+  readonly imageUrisJson: string | null;
+};
+
+function sameStagedCardPrinting(
+    staged: StagedCardPrintingRow,
+    incoming: CardPrinting,
+): boolean {
+  return staged.id === incoming.id
+      && staged.cardIdentityId === incoming.cardIdentityId
+      && staged.layout === incoming.layout
+      && staged.printedName === incoming.printedName
+      && staged.setCode === incoming.setCode
+      && staged.collectorNumber === incoming.collectorNumber
+      && staged.language === incoming.language
+      && staged.tcgplayerId === incoming.tcgplayerId
+      && staged.cardmarketId === incoming.cardmarketId
+      && staged.sourcePageUri === incoming.sourcePageUri;
+}
+
+function sameStringValues(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((value, index) => value === sortedRight[index]);
+}
+
+function sameStagedCardPrintingParts(
+    staged: readonly StagedCardPrintingPartRow[],
+    incoming: readonly CardPrintingPart[],
+): boolean {
+  if (staged.length !== incoming.length) return false;
+  const sortedIncoming = [...incoming].sort((left, right) => left.partIndex - right.partIndex);
+  return staged.every((part, index) => {
+    const candidate = sortedIncoming[index];
+    return candidate !== undefined
+        && part.cardPrintingId === candidate.cardPrintingId
+        && part.partIndex === candidate.partIndex
+        && part.printedName === candidate.printedName
+        && part.flavorName === candidate.flavorName
+        && part.printedTypeLine === candidate.printedTypeLine
+        && part.printedText === candidate.printedText
+        && part.flavorText === candidate.flavorText
+        && part.artist === candidate.artist
+        && part.artistId === candidate.artistId
+        && part.illustrationId === candidate.illustrationId
+        && sameSerializedStringRecord(part.imageUrisJson, candidate.imageUris);
+  });
+}
+
+function sameSerializedStringRecord(
+    serialized: string | null,
+    incoming: Readonly<Record<string, string>> | null,
+): boolean {
+  if (serialized === null || incoming === null) return serialized === incoming;
+  const parsed: unknown = JSON.parse(serialized);
+  if (!isStringRecord(parsed)) return false;
+  const stagedEntries = Object.entries(parsed).sort(([left], [right]) => left.localeCompare(right));
+  const incomingEntries = Object.entries(incoming).sort(([left], [right]) => left.localeCompare(right));
+  return JSON.stringify(stagedEntries) === JSON.stringify(incomingEntries);
+}
+
 function toCardIdentity(row: typeof cardIdentity.$inferSelect): CardIdentity {
   return {
     id: row.id,
@@ -1115,6 +1264,9 @@ function toCardIdentity(row: typeof cardIdentity.$inferSelect): CardIdentity {
     manaValue: row.manaValue,
     typeLine: row.typeLine,
     oracleText: row.oracleText,
+      copyLimitOverride: row.copyLimitOverrideKind === "maximum"
+          ? {kind: "maximum", maximum: row.copyLimitOverrideMaximum!}
+          : {kind: row.copyLimitOverrideKind},
     colorIdentity: row.colorIdentity,
     colors: row.colors,
     colorIndicator: row.colorIndicator,
@@ -1234,6 +1386,7 @@ function toScryfallBulkDataImport(
   return {
     id: row.id,
     bulkDataType: row.bulkDataType,
+      importContractRevision: row.importContractRevision,
     status: row.status,
     startedAt: row.startedAt,
     completedAt: row.completedAt,

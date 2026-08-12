@@ -1,9 +1,23 @@
 import {and, eq, inArray, like, or, sql} from "drizzle-orm";
 import {err, ok, type Result} from "neverthrow";
-import type {CardIdentity, CardReferenceRepository, CardReferenceRepositoryError, CardIdentityDetail, SearchCardIdentitiesInput, SearchCardIdentityTagsInput} from "@tomekin/core";
+import type {
+  CardIdentity,
+  CardIdentityDetail,
+  CardReferenceRepository,
+  CardReferenceRepositoryError,
+  SearchCardIdentitiesInput
+} from "@tomekin/core";
 import {CardIdentitySchema, ScryfallBulkDataImportSchema, summarizeReferenceImports} from "@tomekin/core";
 import type {TomekinDatabase} from "./database";
-import {cardIdentity, cardIdentityFormatLegality, cardIdentityPart, cardIdentityTag, cardIdentityTagAlias, cardIdentityTagging, scryfallBulkDataImport} from "./schema";
+import {
+  cardIdentity,
+  cardIdentityFormatLegality,
+  cardIdentityPart,
+  cardIdentityTag,
+  cardIdentityTagAlias,
+  cardIdentityTagging,
+  scryfallBulkDataImport
+} from "./schema";
 
 export function createSqliteCardReferenceRepository(db: TomekinDatabase): CardReferenceRepository {
   return {
@@ -42,7 +56,19 @@ export function createSqliteCardReferenceRepository(db: TomekinDatabase): CardRe
       });
     },
     async summarizeReferenceSupport() {
-      return wrap(() => summarizeReferenceImports(db.select().from(scryfallBulkDataImport).all().map((row) => ScryfallBulkDataImportSchema.parse({id: row.id, bulkDataType: row.bulkDataType, status: row.status, startedAt: row.startedAt, completedAt: row.completedAt, sourceUpdatedAt: row.sourceUpdatedAt, sourceUri: row.sourceUri, importedRecordCount: row.importedRecordCount, warnings: row.warningsJson as string[], blockingErrors: row.blockingErrorsJson as string[]}))));
+        return wrap(() => summarizeReferenceImports(db.select().from(scryfallBulkDataImport).all().map((row) => ScryfallBulkDataImportSchema.parse({
+            id: row.id,
+            bulkDataType: row.bulkDataType,
+            importContractRevision: row.importContractRevision,
+            status: row.status,
+            startedAt: row.startedAt,
+            completedAt: row.completedAt,
+            sourceUpdatedAt: row.sourceUpdatedAt,
+            sourceUri: row.sourceUri,
+            importedRecordCount: row.importedRecordCount,
+            warnings: row.warningsJson as string[],
+            blockingErrors: row.blockingErrorsJson as string[]
+        }))));
     },
     async listCardIdentitiesByIds(ids) {
       return wrap(() => ids.map((id) => getDetail(db, id)));
@@ -73,7 +99,10 @@ function getDetail(db: TomekinDatabase, id: string): CardIdentityDetail {
 }
 
 function mapCardIdentity(row: typeof cardIdentity.$inferSelect): CardIdentity {
-  return CardIdentitySchema.parse({...row, keywords: row.keywordsJson as string[]});
+    const copyLimitOverride = row.copyLimitOverrideKind === "maximum"
+        ? {kind: "maximum" as const, maximum: row.copyLimitOverrideMaximum}
+        : {kind: row.copyLimitOverrideKind};
+    return CardIdentitySchema.parse({...row, copyLimitOverride, keywords: row.keywordsJson as string[]});
 }
 
 function wrap<T>(fn: () => T): Result<T, CardReferenceRepositoryError> {

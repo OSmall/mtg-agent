@@ -5,6 +5,7 @@ import type {
     CardQueryError,
     CardQueryFilter,
     CardQueryInput,
+    CardQueryLegalityFormat,
     CardQueryProperty,
     CardQueryPropertyRef,
     CardQueryRepository,
@@ -230,7 +231,7 @@ function compileOr(args: readonly CardQueryFilter[], state: CompilerState, input
 function compileReferenceFilter(filter: AtomicCardQueryFilter, state: CompilerState): SqlFragment {
     const property = filter.args[0].property;
     const value = filter.args[1];
-    if (property === "legality.commander") return compileLegalityFilter(filter.op, value);
+    if (property.startsWith("legality.")) return compileLegalityFilter(property.slice("legality.".length) as CardQueryLegalityFormat, filter.op, value);
     if (property.startsWith("tag.")) return compileIndependentTagFilter(filter, state);
     if (filter.op === "contains") return compileContains(identityColumn(property), value as CardQueryScalar);
     if (filter.op === "in") return compileIn(identityColumn(property), value as readonly CardQueryScalar[], property);
@@ -238,12 +239,12 @@ function compileReferenceFilter(filter: AtomicCardQueryFilter, state: CompilerSt
     return compileScalarComparison(identityColumn(property), filter.op, normalizeValue(property, value as CardQueryScalar));
 }
 
-function compileLegalityFilter(op: CardQueryFilter["op"], value: CardQueryValue): SqlFragment {
+function compileLegalityFilter(format: CardQueryLegalityFormat, op: CardQueryFilter["op"], value: CardQueryValue): SqlFragment {
     const predicate = op === "in"
-        ? compileIn("cifl.legality", value as readonly CardQueryScalar[], "legality.commander")
+        ? compileIn("cifl.legality", value as readonly CardQueryScalar[], `legality.${format}` as CardQueryProperty)
         : compileScalarComparison("cifl.legality", op, value as CardQueryScalar);
     return joinFragments([
-        fragment("exists (select 1 from card_identity_format_legality cifl where cifl.card_identity_id = ci.id and cifl.format = ? and ", ["commander"]),
+        fragment("exists (select 1 from card_identity_format_legality cifl where cifl.card_identity_id = ci.id and cifl.format = ? and ", [format]),
         predicate,
         fragment(")"),
     ]);
@@ -549,7 +550,7 @@ function toResultItem(row: PrimaryRow, input: CardQueryInput, legalities: readon
         gameChanger: Boolean(row.gameChanger),
         edhrecRank: row.edhrecRank,
         totalQuantity,
-        ...(include.legalities ? {legalities: Object.fromEntries(legalities.filter((legality) => include.legalities?.includes(legality.format as "commander")).map((legality) => [legality.format, legality.legality])) as Partial<Record<"commander", FormatLegality>>} : {}),
+        ...(include.legalities ? {legalities: Object.fromEntries(legalities.filter((legality) => include.legalities?.includes(legality.format as CardQueryLegalityFormat)).map((legality) => [legality.format, legality.legality])) as Partial<Record<CardQueryLegalityFormat, FormatLegality>>} : {}),
         ...(include.tags ? {tags} : {}),
         ...(include.collectionCards ? {collectionCards: collectionRows.map(toCollectionResult)} : {}),
     };

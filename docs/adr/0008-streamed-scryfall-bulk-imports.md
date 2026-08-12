@@ -13,4 +13,6 @@ over direct streamed writes into target tables because it preserves failed-impor
 set-based validation and clearer diagnostics before live reference data is replaced; Card Printing replacement must also
 respect imported Collection rows by failing fast if a referenced printing disappears from incoming `all_cards`, rather
 than cascading or silently orphaning Collection data. Hot staging loops may use lower-level prepared SQLite statements
-while repository ports continue to hide persistence-specific types from core.
+while repository ports continue to hide persistence-specific types from core. Repeated Card Printing IDs in one
+`all_cards` source are idempotent only when their mapped printing, finishes, and printing parts are equivalent; the
+import stages one copy of an equivalent duplicate but rejects conflicting records instead of choosing one by file order.

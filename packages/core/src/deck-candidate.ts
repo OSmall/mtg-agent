@@ -1,7 +1,8 @@
 import {z} from "zod";
-import {DeckBuildingBriefSchema, DeckFormatSchema, type DeckBuildingBrief} from "./deck-building-brief";
+import {type DeckBuildingBrief, DeckBuildingBriefSchema, DeckFormatSchema} from "./deck-building-brief";
 
-export const DeckCandidateCardSectionSchema = z.enum(["commander", "deck"]);
+export const deckCandidateCardSectionValues = ["commander", "mainboard", "sideboard"] as const;
+export const DeckCandidateCardSectionSchema = z.enum(deckCandidateCardSectionValues);
 export type DeckCandidateCardSection = z.infer<typeof DeckCandidateCardSectionSchema>;
 
 export const DeckCandidateCardInputSchema = z.object({
@@ -18,12 +19,10 @@ export const DeckCandidateCardSchema = DeckCandidateCardInputSchema.extend({
 });
 export type DeckCandidateCard = z.infer<typeof DeckCandidateCardSchema>;
 
-export const SaveDeckCandidateInputSchema = z.object({
+export const SaveDeckCandidateInputSchema = z.strictObject({
   id: z.uuid().optional(),
   label: z.string().min(1),
-  format: DeckFormatSchema.default("commander"),
   formatAnchor: z.string().min(1).nullable().default(null),
-  commanderBracket: z.string().min(1).nullable().default(null),
   brief: DeckBuildingBriefSchema,
   collectionImportTimestamp: z.coerce.date().nullable().default(null),
   markdown: z.string().min(1),
@@ -32,18 +31,25 @@ export const SaveDeckCandidateInputSchema = z.object({
 export type SaveDeckCandidateInput = z.input<typeof SaveDeckCandidateInputSchema>;
 export type NormalizedSaveDeckCandidateInput = z.infer<typeof SaveDeckCandidateInputSchema>;
 
-export const DeckCandidateSchema = z.object({
+export const DeckCandidateSchema = z.strictObject({
   id: z.uuid(),
   label: z.string().min(1),
   format: DeckFormatSchema,
   formatAnchor: z.string().min(1).nullable(),
-  commanderBracket: z.string().min(1).nullable(),
   brief: DeckBuildingBriefSchema,
   collectionImportTimestamp: z.date().nullable(),
   markdown: z.string().min(1),
   createdAt: z.date(),
   updatedAt: z.date(),
   cards: z.array(DeckCandidateCardSchema),
+}).superRefine((candidate, context) => {
+    if (candidate.format !== candidate.brief.format) {
+        context.addIssue({
+            code: "custom",
+            path: ["format"],
+            message: "Deck Candidate Format must match its authoritative Deck Building Brief Format.",
+        });
+    }
 });
 export type DeckCandidate = z.infer<typeof DeckCandidateSchema>;
 
@@ -63,7 +69,8 @@ export type DeckCandidateRepository = {
 };
 
 export function normalizeDeckCandidateForSave(input: SaveDeckCandidateInput): NormalizedSaveDeckCandidateInput {
-  return SaveDeckCandidateInputSchema.parse(input);
+    const parsed = SaveDeckCandidateInputSchema.parse(input);
+    return parsed;
 }
 
 export function candidateCardCount(cards: readonly {readonly quantity: number}[]): number {

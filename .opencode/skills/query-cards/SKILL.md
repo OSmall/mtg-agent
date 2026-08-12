@@ -6,9 +6,8 @@ description: Use when composing, fixing, or explaining filters for the `query_ca
 # Query Cards
 
 Use this reference for the `query_cards` tool. Card Query is structured card retrieval over local Card Identity,
-Commander legality, Card Identity Tags, and imported Collection rows. It is not SQL and does not accept arbitrary
-property
-paths.
+supported sanctioned Format legality, Card Identity Tags, and imported Collection rows. It is not SQL and does not
+accept arbitrary property paths.
 
 ## Envelope
 
@@ -63,6 +62,12 @@ Card Identity and reference queryables:
 - `identity.gameChanger`
 - `identity.edhrecRank`
 - `legality.commander`
+- `legality.standard`
+- `legality.pioneer`
+- `legality.modern`
+- `legality.legacy`
+- `legality.vintage`
+- `legality.pauper`
 - `tag.id`
 - `tag.slug`
 - `tag.label`
@@ -105,7 +110,9 @@ Sortable properties:
 - Tag weights are exact enum values: `very_strong`, `strong`, `median`, and `weak`. Use `=` or `in`; ranked comparisons
   such as `tag.weight >= "strong"` are not supported.
 - `!=` is rejected for `collection.*` and `tag.*` predicates.
-- `legality.commander` values include `legal`, `not_legal`, `banned`, and `restricted`.
+- Every supported `legality.*` property uses the exact values `legal`, `not_legal`, `banned`, and `restricted`.
+- `legality.casual_60` is invalid because Casual 60 deliberately bypasses Scryfall legality. Other retained Scryfall
+  Format properties are also outside the public Card Query vocabulary.
 - Color Identity values are exact WUBRG strings such as `""`, `"G"`, `"UG"`, or `"WUBRG"`.
 
 Inside `withTagging`, only these are allowed:
@@ -146,11 +153,154 @@ this location.”
   Location, finish, altered, and misprint filters constrain this total. With no Collection predicates, it is total owned
   quantity across the whole Collection.
 
+### Canonical Collection Location Allow-list
+
+Card Query is stateless: it does not remember the Deck Building Brief or a Collection Access Policy. When a
+deck-building workflow confirms allowed Collection Locations, call `list_collection_locations` once and record exact
+`(locationType, locationName)` pairs. Copy the same positive allow-list predicate into every Collection query and the
+final Availability recheck.
+
+When allowed names are unique, use one explicitly scoped predicate:
+
+```json
+{
+  "op": "withCollectionCard",
+  "args": [
+    {
+      "op": "and",
+      "args": [
+        {
+          "op": "in",
+          "args": [
+            {
+              "property": "collection.locationName"
+            },
+            [
+              "Main Binder",
+              "Red Starter Deck"
+            ]
+          ]
+        },
+        {
+          "op": ">",
+          "args": [
+            {
+              "property": "collection.quantity"
+            },
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Location names are unique only within a location type. If a binder and deck share a name, preserve exact pairs in
+separate branches:
+
+```json
+{
+  "op": "withCollectionCard",
+  "args": [
+    {
+      "op": "or",
+      "args": [
+        {
+          "op": "and",
+          "args": [
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationType"
+                },
+                "binder"
+              ]
+            },
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationName"
+                },
+                "Shared Name"
+              ]
+            },
+            {
+              "op": ">",
+              "args": [
+                {
+                  "property": "collection.quantity"
+                },
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "op": "and",
+          "args": [
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationType"
+                },
+                "deck"
+              ]
+            },
+            {
+              "op": "=",
+              "args": [
+                {
+                  "property": "collection.locationName"
+                },
+                "Allowed Deck"
+              ]
+            },
+            {
+              "op": ">",
+              "args": [
+                {
+                  "property": "collection.quantity"
+                },
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Do not simplify the second form to `locationName in [...]`; that could admit the disallowed location type. A Collection
+query that omits or widens the active allow-list is invalid workflow usage: discard its evidence and retry.
+
+For a final Deck Candidate Availability check, combine the unchanged allow-list with
+`identity.name in [final card names]`, use a limit large enough for the final distinct names, and compare each scoped
+`totalQuantity` with the required quantity.
+
+### Staged Retrieval
+
+Complete coverage does not require returning every raw field at once.
+
+- Use limits of 20-50 for broad discovery and query by functional package, tag concept, or Mana Value band.
+- Keep `include.tags` and `include.collectionCards` off during broad scans.
+- Fetch full tags for strategic shortlists and Collection Card rows for Availability or assembly evidence.
+- Do not request `include.tags: true` and `include.collectionCards: true` together across hundreds of cards.
+- Card Query has no pagination. If a result reaches its limit, narrow the filter into non-overlapping buckets rather
+  than raising the maximum or assuming the unseen tail is irrelevant.
+
 ## Includes
 
 `include` changes projection only; it does not constrain matching.
 
-- `legalities: ["commander"]` includes Commander legality in results.
+- `legalities` accepts `commander`, `standard`, `pioneer`, `modern`, `legacy`, `vintage`, and `pauper`. It includes the
+  requested Scryfall legality rows in results without filtering cards.
+- `legalities: ["casual_60"]` is invalid because Casual 60 has no Scryfall legality check.
 - `tags: true` includes direct and inherited Card Identity Tag summaries.
 - `collectionCards: true` includes compact owned Collection Card rows. If Collection predicates are present, these are
   the rows that matched the Collection branch.
