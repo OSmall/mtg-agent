@@ -19,6 +19,7 @@ permission:
   "tomekin_query_cards": allow
   "tomekin_get_card_identity": allow
   "tomekin_search_card_identity_tags": allow
+  "tomekin_search_card_sets": allow
   "tomekin_summarize_reference_support": allow
   "tomekin_get_format_constraints": allow
   "tomekin_resolve_decklist_cards": allow

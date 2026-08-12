@@ -250,7 +250,13 @@ function rawAllCard() {
   return {
     ...rawOracleCard(),
     id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    set_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
     set: "v10",
+    set_name: "From the Vault: Relics",
+    set_type: "from_the_vault",
+    set_uri: "https://api.scryfall.com/sets/dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    set_search_uri: "https://api.scryfall.com/cards/search?q=e%3Av10&unique=prints",
+    scryfall_set_uri: "https://scryfall.com/sets/v10?utm_source=api",
     collector_number: "12",
     finishes: ["foil"],
     lang: "en",

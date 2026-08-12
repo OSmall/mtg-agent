@@ -117,7 +117,7 @@ export const draft_deck_building_brief = tool({
 });
 
 export const query_cards = tool({
-    description: "Run a structured Card Query over local Card Identities, supported sanctioned Format legality, Card Identity Tags, and imported Collection card rows. For filter syntax and examples, load the query-cards skill before composing non-trivial filters or after validation errors.",
+    description: "Run a structured Card Query over local Card Identities, including explicit Printing constraints, sanctioned Format legality, Card Identity Tags, and imported Collection rows. Load the query-cards skill for Printing scope semantics and non-trivial filters.",
   args: {
     filter: z.unknown().optional(),
     sortby: z.array(z.object({
@@ -149,6 +149,14 @@ export const search_card_identity_tags = tool({
   args: {query: z.string().optional(), limit: z.number().int().positive().max(100).optional()},
   async execute(args) {
     return runTool("search_card_identity_tags", args, (handlers) => handlers.searchCardIdentityTags(args));
+  },
+});
+
+export const search_card_sets = tool({
+  description: "Search local Scryfall Card Sets by code or name and return complete Set metadata.",
+  args: {query: z.string().optional(), limit: z.number().int().positive().max(100).optional()},
+  async execute(args) {
+    return runTool("search_card_sets", args, (handlers) => handlers.searchCardSets(args));
   },
 });
 

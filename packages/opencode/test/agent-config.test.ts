@@ -76,6 +76,17 @@ describe("Tomekin agent configuration", () => {
         }
         expect(querySkill).toContain("`legality.casual_60` is invalid");
     });
+
+    test("permits Card Set discovery and documents Printing-scope semantics", () => {
+        const querySkill = read(".opencode/skills/query-cards/SKILL.md");
+        const agent = read(".opencode/agents/tomekin-deck-builder.md");
+
+        expect(agent).toContain('"tomekin_search_card_sets": allow');
+        expect(querySkill).toContain("search_card_sets");
+        expect(querySkill).toContain("withPrinting");
+        expect(querySkill).toContain("withoutPrinting");
+        expect(querySkill).toContain("printing.universesBeyond");
+    });
 });
 
 function read(path: string): string {

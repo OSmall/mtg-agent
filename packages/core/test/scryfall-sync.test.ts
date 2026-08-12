@@ -2,6 +2,7 @@ import {describe, expect, test} from "bun:test";
 import {
     createScryfallLocalImportServices,
     createScryfallSyncServices,
+    mapRawScryfallAllCardToCardPrintingImportRecord,
     mapRawScryfallOracleCardToCardIdentityImportRecord,
     mapRawScryfallOracleTagToCardIdentityTagImportRecord,
     RawScryfallAllCardSchema,
@@ -328,7 +329,13 @@ describe("Scryfall sync services", () => {
       name: "Sol Ring",
         layout: "normal",
       printed_name: "Sol Ring",
+      set_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
       set: "v10",
+      set_name: "Tenth Edition",
+      set_type: "core",
+      set_uri: "https://api.scryfall.com/sets/dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      set_search_uri: "https://api.scryfall.com/cards/search?q=e%3Av10&unique=prints",
+      scryfall_set_uri: "https://scryfall.com/sets/v10?utm_source=api",
       collector_number: "12",
       finishes: ["foil"],
       lang: "en",
@@ -339,6 +346,33 @@ describe("Scryfall sync services", () => {
     expect("future_scryfall_field" in oracle).toBe(false);
     expect(oracle.legalities.future_format).toBe("legal");
     expect("future_scryfall_field" in allCard).toBe(false);
+  });
+
+  test("maps complete Set metadata, promo types, lowercase code, and human-facing URI cleanup", () => {
+    const raw = RawScryfallAllCardSchema.parse({
+      ...rawAllCard(),
+      set: "hob",
+      promo_types: ["universesbeyond", "boosterfun"],
+      scryfall_uri: "https://scryfall.com/card/hob/1/example?utm_source=api",
+      scryfall_set_uri: "https://scryfall.com/sets/hob?utm_source=api",
+    });
+
+    const record = mapRawScryfallAllCardToCardPrintingImportRecord(raw);
+    expect(record.set).toEqual({
+      id: raw.set_id,
+      code: "hob",
+      name: raw.set_name,
+      setType: raw.set_type,
+      apiUri: raw.set_uri,
+      cardSearchUri: raw.set_search_uri,
+      sourcePageUri: "https://scryfall.com/sets/hob",
+    });
+    expect(record.printing).toEqual(expect.objectContaining({setId: raw.set_id, sourcePageUri: "https://scryfall.com/card/hob/1/example"}));
+    expect(record.promoTypes).toEqual([
+      {cardPrintingId: raw.id, promoType: "universesbeyond"},
+      {cardPrintingId: raw.id, promoType: "boosterfun"},
+    ]);
+    expect(record.set.cardSearchUri).toContain("?");
   });
 
     test("oracle_cards compiles Copy Limit Overrides into Card Identity records", () => {
@@ -635,7 +669,13 @@ function rawAllCard() {
   return {
     ...rawOracleCard(),
     id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    set_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
     set: "v10",
+    set_name: "Tenth Edition",
+    set_type: "core",
+    set_uri: "https://api.scryfall.com/sets/dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    set_search_uri: "https://api.scryfall.com/cards/search?q=e%3Av10&unique=prints",
+    scryfall_set_uri: "https://scryfall.com/sets/v10?utm_source=api",
     collector_number: "12",
     finishes: ["foil"],
     lang: "en",

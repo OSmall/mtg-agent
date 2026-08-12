@@ -193,7 +193,7 @@ describe("SQLite Scryfall repository", () => {
         cardIdentityId: "6ad8011d-3471-4369-9d68-b264cc027487",
         layout: "standard",
         printedName: null,
-        setCode: "v10",
+        setId: "3e3ea3e8-3d63-481f-b3ec-03c4f50b602e",
         collectorNumber: "12",
         finishes: ["foil"],
         language: "en",
@@ -227,7 +227,111 @@ describe("SQLite Scryfall repository", () => {
           printedTypeLine: "インスタント",
         }),
     );
+    const sets = await repository.listCardSets();
+    if (sets.isErr()) throw new Error(sets.error.message);
+    expect(sets.value).toContainEqual(expect.objectContaining({
+      id: "3e3ea3e8-3d63-481f-b3ec-03c4f50b602e",
+      code: "v10",
+      sourcePageUri: "https://scryfall.com/sets/v10",
+      cardSearchUri: expect.stringContaining("?"),
+    }));
+    const promoTypes = await repository.listCardPrintingPromoTypes();
+    if (promoTypes.isErr()) throw new Error(promoTypes.error.message);
+    expect(promoTypes.value).toContainEqual(expect.objectContaining({promoType: "universesbeyond"}));
   });
+
+    test("all_cards rejects Set metadata conflicts and code-to-UUID conflicts transactionally", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+        expect((await repository.importCardPrintings(importInput(printings))).isOk()).toBe(true);
+        const baselineSets = await repository.listCardSets();
+        if (baselineSets.isErr()) throw new Error(baselineSets.error.message);
+
+        const metadataConflict = {...printings[0], set: {...printings[0].set, name: "Conflicting name"}};
+        const metadataResult = await repository.importCardPrintings(importInput([...printings, metadataConflict]));
+        expect(metadataResult.isErr()).toBe(true);
+        if (metadataResult.isOk()) throw new Error("expected Set metadata conflict");
+        expect(metadataResult.error.message).toContain(`conflicting Card Set ID ${printings[0].set.id}`);
+
+        const conflictingSetId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        const codeConflict = {
+            ...printings[0],
+            set: {...printings[0].set, id: conflictingSetId},
+            printing: {...printings[0].printing, id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", setId: conflictingSetId},
+            parts: [],
+            promoTypes: [],
+        };
+        const codeResult = await repository.importCardPrintings(importInput([...printings, codeConflict]));
+        expect(codeResult.isErr()).toBe(true);
+        if (codeResult.isOk()) throw new Error("expected Set code conflict");
+        expect(codeResult.error.message).toContain(`maps Card Set code ${printings[0].set.code} to multiple Set IDs`);
+
+        const after = await repository.listCardSets();
+        if (after.isErr()) throw new Error(after.error.message);
+        expect(after.value).toEqual(baselineSets.value);
+    });
+
+    test("all_cards rejects duplicate promo types and removes stale Sets after Printings", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const printings = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+        expect((await repository.importCardPrintings(importInput(printings))).isOk()).toBe(true);
+        const printing = printings[0];
+        const promo = {cardPrintingId: printing.printing.id, promoType: "duplicate"};
+        const duplicateResult = await repository.importCardPrintings(importInput([
+            {...printing, promoTypes: [promo, promo]},
+        ]));
+        expect(duplicateResult.isErr()).toBe(true);
+
+        const retainedSet = printing.set;
+        const refresh = await repository.importCardPrintings(importInput([printing]));
+        expect(refresh.isOk()).toBe(true);
+        const sets = await repository.listCardSets();
+        if (sets.isErr()) throw new Error(sets.error.message);
+        expect(sets.value).toEqual([retainedSet]);
+    });
+
+    test("all_cards can move a retained Printing to a new Set before removing its stale Set", async () => {
+        const repository = createTestRepository();
+        const records = await readOracleCardIdentityRecordsFixture();
+        const [printing] = filterPrintingsWithKnownIdentities(
+            await readAllCardPrintingsFixture(),
+            records.map((record) => record.identity),
+        );
+        if (!printing) throw new Error("expected a Printing fixture");
+        expect((await repository.importCardIdentities(importInput(records))).isOk()).toBe(true);
+        expect((await repository.importCardPrintings(importInput([printing]))).isOk()).toBe(true);
+
+        const replacementSet = {
+            ...printing.set,
+            id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            code: "new",
+            name: "Replacement Set",
+        };
+        const moved = {
+            ...printing,
+            set: replacementSet,
+            printing: {...printing.printing, setId: replacementSet.id},
+        };
+        const result = await repository.importCardPrintings(importInput([moved]));
+
+        expect(result.isOk()).toBe(true);
+        const sets = await repository.listCardSets();
+        const printings = await repository.listCardPrintings();
+        if (sets.isErr()) throw new Error(sets.error.message);
+        if (printings.isErr()) throw new Error(printings.error.message);
+        expect(sets.value).toEqual([replacementSet]);
+        expect(printings.value[0]?.setId).toBe(replacementSet.id);
+    });
 
     test("all_cards import accepts equivalent duplicate Card Printing records once", async () => {
         const repository = createTestRepository();
@@ -263,7 +367,7 @@ describe("SQLite Scryfall repository", () => {
         expect((await repository.importCardPrintings(importInput(printings))).isOk()).toBe(true);
         const conflicting = {
             ...printings[0],
-            printing: {...printings[0].printing, setCode: "conflict"},
+            printing: {...printings[0].printing, collectorNumber: "conflict"},
         };
 
         const result = await repository.importCardPrintings(
@@ -281,7 +385,7 @@ describe("SQLite Scryfall repository", () => {
         expect(imported.value).toContainEqual(
             expect.objectContaining({
                 id: printings[0].printing.id,
-                setCode: printings[0].printing.setCode,
+                setId: printings[0].printing.setId,
             }),
         );
     });

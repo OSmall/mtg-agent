@@ -419,6 +419,12 @@ The agent should understand enough card text, legality, colour identity, and com
 
 The agent should cite or reference authoritative and current sources for volatile or rules-sensitive claims when relevant, including legality, banned cards, Commander Brackets, official rules-sensitive claims, and current prices.
 
+Local Card Set discovery must come from imported `all_cards` metadata through `search_card_sets`, not web browsing or a
+hardcoded skill list. Card Query remains Card Identity-rooted and expresses Printing constraints only through
+`withPrinting` and `withoutPrinting`. For ordinary “no Universes Beyond” or “no Secret Lair” acquisition guidance, the
+agent should prefer an identity with at least one acceptable Printing; it should use the stricter never-printed
+anti-existence interpretation only when the user explicitly requests it.
+
 The agent does not need citations for ordinary deck-building judgement, such as identifying ramp, payoffs, enablers, interaction needs, curve concerns, or synergy fit.
 
 When the agent is unsure, it should flag uncertainty rather than inventing precision. Prices should be treated as approximate and time-sensitive. Commander Bracket guidance should be checked against current external guidance because the bracket system may evolve.

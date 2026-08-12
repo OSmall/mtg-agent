@@ -133,6 +133,16 @@ _Avoid_: Decklist, shopping list
 A source-backed record for a specific printed or print-like version of a card, distinct from both owned Collection rows and canonical card identity.
 _Avoid_: Scryfall Card, card pool entry
 
+**Card Set**:
+Local Scryfall Set reference metadata shared by Card Printings. A Card Set is discovered by source-faithful code or name
+and identified by Scryfall Set UUID; it is not an inferred product family or a hardcoded agent vocabulary.
+_Avoid_: Edition when the source Set is meant, Set type
+
+**Printing Scope**:
+A Card Query relationship scope that tests one Card Printing and its Card Set. `withPrinting` means an acceptable
+Printing exists; `withoutPrinting` means no related Printing satisfies the predicate.
+_Avoid_: Applying Printing predicates directly to Card Identity
+
 **Card Part**:
 An ordered face, side, half, or castable mode of a Card Printing or Card Identity. A Card Part describes part-specific
 card information without implying it is independently owned or always independently deck-buildable.

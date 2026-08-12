@@ -97,7 +97,7 @@ Relationships:
 
 It is source reference data, not an owned collection row. It should include only source fields directly needed for
 resolving imported collection rows and displaying exact printings. For the MVP, that means the Scryfall card ID as `id`,
-the related Card Identity as `card_identity_id`, printing `layout`, nullable Printed Name, set code, collector number,
+the related Card Identity as `card_identity_id`, printing `layout`, nullable Printed Name, Card Set UUID, collector number,
 language, marketplace product IDs where Scryfall provides them, and the source page URI for opening
 the printing in the source system. Printed Name should preserve Scryfall `printed_name` when present and remain null
 when the source omits a top-level print-local name.
@@ -121,11 +121,29 @@ ManaBox Collection import should require local `all_cards` and `oracle_cards` da
 Relationships:
 
 - A `CardPrinting` references one `CardIdentity`.
+- A `CardPrinting` references one `CardSet` by Scryfall Set UUID.
 - Many `CardPrinting` records may reference the same `CardIdentity`.
 - A `CardPrinting` may have many `CardPrintingPart` records when Scryfall `all_cards.card_faces` provides exact printing
   or presentation parts.
 - A `CardPrinting` may have many `CardPrintingFinish` records describing the finishes available for that exact printing.
+- A `CardPrinting` may have many extensible `CardPrintingPromoType` rows.
 - A `CardPrinting` may be referenced by many `CollectionCard` records.
+
+### CardSet
+
+`CardSet` is Set reference data derived from the fields repeated on Scryfall `all_cards` records. It stores the Set UUID,
+source-faithful lowercase code, name, open-ended Set type, API URI, functional card-search URI, and human-facing source
+page URI. Imports deduplicate identical repeated metadata and reject UUID or code conflicts transactionally.
+
+`CardPrinting.set_id` is required and has no placeholder or nullable legacy state. A pre-Card-Set local database must
+explicitly clear its regenerable Collection/Printing snapshot before applying this migration, then sync Scryfall and
+reimport the Collection. Card Identities and saved Deck Candidates are preserved across this one-time upgrade.
+
+### CardPrintingPromoType
+
+`CardPrintingPromoType` stores every non-empty source `promo_types` value for one Card Printing under a composite key.
+The vocabulary is open-ended. `printing.universesBeyond` is derived from existence of the `universesbeyond` row rather
+than persisted as a redundant boolean.
 
 ### CardPrintingFinish
 
@@ -163,7 +181,8 @@ It should record the bulk data type, import status, started and completed timest
 Each import records the dataset-specific Import Contract Revision that produced it. Reference readiness compares the
 latest successful import with the currently required revision; missing datasets and revision-incompatible datasets are
 reported separately. Schema-migrated legacy imports use revision zero and remain unusable for reference-dependent
-operations until the affected dataset is imported successfully again.
+operations until the affected dataset is imported successfully again. The Card Set/Printing relationship and promo-type
+catalog require `all_cards` Import Contract Revision 3.
 
 Successful `ScryfallBulkDataImport` records update the corresponding Scryfall-backed records. Failed imports should preserve diagnostic information without replacing the last usable Scryfall-backed dataset.
 

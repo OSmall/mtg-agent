@@ -11,11 +11,13 @@ import type {
     CollectionRepositoryError,
     ResolvedCollectionCardPrinting,
 } from "@tomekin/core";
+import {requiredScryfallImportContractRevisions} from "@tomekin/core";
 import type {TomekinDatabase} from "./database";
 import {
     cardIdentity,
     cardPrinting,
     cardPrintingFinish,
+    cardSet,
     collectionCard,
     collectionImport,
     collectionLocation,
@@ -36,15 +38,30 @@ export function createSqliteCollectionRepository(
         async hasRequiredReferenceData() {
             try {
                 const rows = await db
-                    .select({bulkDataType: scryfallBulkDataImport.bulkDataType})
+                    .select({
+                        bulkDataType: scryfallBulkDataImport.bulkDataType,
+                        importContractRevision: scryfallBulkDataImport.importContractRevision,
+                    })
                     .from(scryfallBulkDataImport)
-                    .where(sql`${scryfallBulkDataImport.status} = 'succeeded' AND ${scryfallBulkDataImport.bulkDataType} IN ('oracle_cards', 'all_cards')`);
-                const imported = new Set(rows.map((row) => row.bulkDataType));
-                const missing = ["oracle_cards", "all_cards"].filter((type) => !imported.has(type as never));
+                    .where(sql`${scryfallBulkDataImport.status} = 'succeeded' AND ${scryfallBulkDataImport.bulkDataType} IN ('oracle_cards', 'all_cards')`)
+                    .orderBy(scryfallBulkDataImport.startedAt, scryfallBulkDataImport.completedAt);
+                const imported = new Map(rows.map((row) => [row.bulkDataType, row.importContractRevision]));
+                const required = ["oracle_cards", "all_cards"] as const;
+                const missing = required.filter((type) => !imported.has(type));
+                const reimportRequired = required.filter((type) => {
+                    const revision = imported.get(type);
+                    return revision !== undefined && revision !== requiredScryfallImportContractRevisions[type];
+                });
                 if (missing.length > 0) {
                     return err({
                         type: "repository_error",
                         message: `Collection import requires latest successful Scryfall imports: ${missing.join(", ")}.`
+                    });
+                }
+                if (reimportRequired.length > 0) {
+                    return err({
+                        type: "repository_error",
+                        message: `Collection import requires reimported Scryfall datasets: ${reimportRequired.join(", ")}.`,
                     });
                 }
                 return ok(true);
@@ -60,12 +77,13 @@ export function createSqliteCollectionRepository(
                         id: cardPrinting.id,
                         cardIdentityName: cardIdentity.name,
                         printedName: cardPrinting.printedName,
-                        setCode: cardPrinting.setCode,
+                        setCode: cardSet.code,
                         collectorNumber: cardPrinting.collectorNumber,
                         language: cardPrinting.language,
                     })
                     .from(cardPrinting)
                     .innerJoin(cardIdentity, eq(cardPrinting.cardIdentityId, cardIdentity.id))
+                    .innerJoin(cardSet, eq(cardPrinting.setId, cardSet.id))
                     .where(eq(cardPrinting.id, id))
                     .limit(1);
                 if (!row) return ok(null);

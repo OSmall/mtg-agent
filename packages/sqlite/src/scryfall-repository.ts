@@ -14,6 +14,8 @@ import type {
   CardPrinting,
   CardPrintingImportRecord,
   CardPrintingPart,
+  CardPrintingPromoType,
+  CardSet,
   Clock,
   ScryfallBulkDataImport,
   ScryfallBulkDataType,
@@ -37,6 +39,8 @@ import {
   cardPrinting,
   cardPrintingFinish,
   cardPrintingPart,
+  cardPrintingPromoType,
+  cardSet,
   scryfallBulkDataImport,
 } from "./schema";
 
@@ -54,6 +58,8 @@ export type SqliteScryfallRepository = ScryfallRepository & {
   ): Promise<Result<ScryfallBulkDataImport, ScryfallRepositoryError>>;
   listCardIdentityParts(): Promise<Result<readonly CardIdentityPart[], ScryfallRepositoryError>>;
   listCardPrintingParts(): Promise<Result<readonly CardPrintingPart[], ScryfallRepositoryError>>;
+  listCardSets(): Promise<Result<readonly CardSet[], ScryfallRepositoryError>>;
+  listCardPrintingPromoTypes(): Promise<Result<readonly CardPrintingPromoType[], ScryfallRepositoryError>>;
   importCardIdentityTags(
     input: ScryfallBulkImportInput<CardIdentityTagImportRecord>,
   ): Promise<Result<ScryfallBulkDataImport, ScryfallRepositoryError>>;
@@ -409,6 +415,18 @@ export function createSqliteScryfallRepository(
       let importedRecordCount = 0;
       try {
         beginTransaction(db);
+        db.run(sql`DROP TABLE IF EXISTS temp.import_card_set`);
+        db.run(sql`
+          CREATE TEMP TABLE import_card_set (
+            id TEXT PRIMARY KEY NOT NULL,
+            code TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            set_type TEXT NOT NULL,
+            api_uri TEXT NOT NULL,
+            card_search_uri TEXT NOT NULL,
+            source_page_uri TEXT NOT NULL
+          )
+        `);
         db.run(sql`DROP TABLE IF EXISTS temp.import_card_printing`);
         db.run(sql`
           CREATE TEMP TABLE import_card_printing (
@@ -416,12 +434,20 @@ export function createSqliteScryfallRepository(
             card_identity_id TEXT NOT NULL,
             layout TEXT NOT NULL,
             printed_name TEXT,
-            set_code TEXT NOT NULL,
+            set_id TEXT NOT NULL,
             collector_number TEXT NOT NULL,
             language TEXT NOT NULL,
             tcgplayer_id INTEGER,
             cardmarket_id INTEGER,
             source_page_uri TEXT NOT NULL
+          )
+        `);
+        db.run(sql`DROP TABLE IF EXISTS temp.import_card_printing_promo_type`);
+        db.run(sql`
+          CREATE TEMP TABLE import_card_printing_promo_type (
+            card_printing_id TEXT NOT NULL,
+            promo_type TEXT NOT NULL,
+            PRIMARY KEY (card_printing_id, promo_type)
           )
         `);
           db.run(sql`DROP TABLE IF EXISTS temp.import_card_printing_finish`);
@@ -452,13 +478,18 @@ export function createSqliteScryfallRepository(
           )
         `);
 
+        const insertSet = db.$client.prepare(`
+          INSERT INTO import_card_set (id, code, name, set_type, api_uri, card_search_uri, source_page_uri)
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+          ON CONFLICT(id) DO NOTHING
+        `);
         const insertPrinting = db.$client.prepare(`
           INSERT INTO import_card_printing (
             id,
             card_identity_id,
             layout,
             printed_name,
-            set_code,
+            set_id,
             collector_number,
             language,
             tcgplayer_id,
@@ -466,6 +497,10 @@ export function createSqliteScryfallRepository(
             source_page_uri)
           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
           ON CONFLICT(id) DO NOTHING
+        `);
+        const insertPromoType = db.$client.prepare(`
+          INSERT INTO import_card_printing_promo_type (card_printing_id, promo_type)
+          VALUES (?1, ?2)
         `);
           const insertPrintingFinish = db.$client.prepare(`
           INSERT INTO import_card_printing_finish (card_printing_id, finish)
@@ -487,13 +522,28 @@ export function createSqliteScryfallRepository(
         `);
         try {
           for await (const record of input.records) {
-            const {printing, parts} = record;
+            const {set, printing, parts, promoTypes} = record;
+            const [setWithCode] = db.all<{id: string}>(sql`SELECT id FROM import_card_set WHERE code = ${set.code}`);
+            if (setWithCode && setWithCode.id !== set.id) {
+              throw importRejection([`all_cards import maps Card Set code ${set.code} to multiple Set IDs.`]);
+            }
+            const insertedSet = insertSet.run(set.id, set.code, set.name, set.setType, set.apiUri, set.cardSearchUri, set.sourcePageUri);
+            if (insertedSet.changes === 0) {
+              const [stagedSet] = db.all<StagedCardSetRow>(sql`
+                SELECT id, code, name, set_type AS setType, api_uri AS apiUri,
+                       card_search_uri AS cardSearchUri, source_page_uri AS sourcePageUri
+                FROM import_card_set WHERE id = ${set.id}
+              `);
+              if (!stagedSet || !sameStagedCardSet(stagedSet, set)) {
+                throw importRejection([`all_cards import contains conflicting Card Set ID ${set.id}.`]);
+              }
+            }
             const inserted = insertPrinting.run(
                 printing.id,
                 printing.cardIdentityId,
                 printing.layout,
                 printing.printedName,
-                printing.setCode,
+                printing.setId,
                 printing.collectorNumber,
                 printing.language,
                 printing.tcgplayerId,
@@ -506,7 +556,7 @@ export function createSqliteScryfallRepository(
                        card_identity_id AS cardIdentityId,
                        layout,
                        printed_name     AS printedName,
-                       set_code         AS setCode,
+                       set_id           AS setId,
                        collector_number AS collectorNumber,
                        language,
                        tcgplayer_id     AS tcgplayerId,
@@ -537,11 +587,18 @@ export function createSqliteScryfallRepository(
                 WHERE card_printing_id = ${printing.id}
                 ORDER BY part_index
               `);
+              const stagedPromoTypes = db.all<{readonly promoType: string}>(sql`
+                SELECT promo_type AS promoType
+                FROM import_card_printing_promo_type
+                WHERE card_printing_id = ${printing.id}
+                ORDER BY promo_type
+              `).map((row) => row.promoType);
               if (
                   !stagedPrinting
                   || !sameStagedCardPrinting(stagedPrinting, printing)
                   || !sameStringValues(stagedFinishes, printing.finishes)
                   || !sameStagedCardPrintingParts(stagedParts, parts)
+                  || !sameStringValues(stagedPromoTypes, promoTypes.map((item) => item.promoType))
               ) {
                 throw importRejection([
                   `all_cards import contains conflicting Card Printing ID ${printing.id}.`,
@@ -567,13 +624,18 @@ export function createSqliteScryfallRepository(
                   part.imageUris === null ? null : JSON.stringify(part.imageUris),
               );
             }
+            for (const promoType of promoTypes) {
+              insertPromoType.run(promoType.cardPrintingId, promoType.promoType);
+            }
             importedRecordCount += 1;
             emitStagedRecordCounter(input.observer, importedRecordCount);
           }
         } finally {
+          insertPromoType.finalize();
           insertPrintingPart.finalize();
             insertPrintingFinish.finalize();
           insertPrinting.finalize();
+          insertSet.finalize();
         }
         emitStagedRecordCounter(input.observer, importedRecordCount, true);
 
@@ -593,6 +655,14 @@ export function createSqliteScryfallRepository(
           ]);
         }
 
+        const missingSetIds = db.all<{id: string}>(sql`
+          SELECT DISTINCT set_id AS id FROM import_card_printing
+          WHERE set_id NOT IN (SELECT id FROM import_card_set)
+        `);
+        if (missingSetIds.length > 0) {
+          throw importRejection([`all_cards import references missing Card Set IDs: ${missingSetIds.map((row) => row.id).join(", ")}.`]);
+        }
+
           const orphanedCollectionPrintings = timedFinalizationPhase(
               input.observer,
               "orphaned_collection_printing_check",
@@ -610,6 +680,7 @@ export function createSqliteScryfallRepository(
           }
 
         timedFinalizationPhase(input.observer, "delete_existing_records", () => {
+          db.delete(cardPrintingPromoType).run();
           db.delete(cardPrintingPart).run();
             db.delete(cardPrintingFinish).run();
             db.run(sql`
@@ -619,12 +690,20 @@ export function createSqliteScryfallRepository(
         });
           timedFinalizationPhase(input.observer, "upsert_from_staging", () => {
           db.run(sql`
+            INSERT INTO card_set (id, code, name, set_type, api_uri, card_search_uri, source_page_uri)
+            SELECT id, code, name, set_type, api_uri, card_search_uri, source_page_uri FROM import_card_set
+            WHERE true
+            ON CONFLICT(id) DO UPDATE SET code = excluded.code, name = excluded.name,
+              set_type = excluded.set_type, api_uri = excluded.api_uri,
+              card_search_uri = excluded.card_search_uri, source_page_uri = excluded.source_page_uri
+          `);
+          db.run(sql`
             INSERT INTO card_printing (
               id,
               card_identity_id,
               layout,
               printed_name,
-              set_code,
+              set_id,
               collector_number,
               language,
               tcgplayer_id,
@@ -636,7 +715,7 @@ export function createSqliteScryfallRepository(
               card_identity_id,
               layout,
               printed_name,
-              set_code,
+              set_id,
               collector_number,
               language, tcgplayer_id, cardmarket_id,
               source_page_uri
@@ -646,7 +725,7 @@ export function createSqliteScryfallRepository(
               card_identity_id = excluded.card_identity_id,
               layout = excluded.layout,
               printed_name = excluded.printed_name,
-              set_code = excluded.set_code,
+              set_id = excluded.set_id,
               collector_number = excluded.collector_number,
               language = excluded.language,
               tcgplayer_id = excluded.tcgplayer_id,
@@ -657,6 +736,10 @@ export function createSqliteScryfallRepository(
             INSERT INTO card_printing_finish (card_printing_id, finish)
             SELECT card_printing_id, finish
             FROM import_card_printing_finish
+          `);
+          db.run(sql`
+            INSERT INTO card_printing_promo_type (card_printing_id, promo_type)
+            SELECT card_printing_id, promo_type FROM import_card_printing_promo_type
           `);
           db.run(sql`
             INSERT INTO card_printing_part (card_printing_id,
@@ -683,6 +766,7 @@ export function createSqliteScryfallRepository(
                    image_uris_json
             FROM import_card_printing_part
           `);
+          db.run(sql`DELETE FROM card_set WHERE id NOT IN (SELECT id FROM import_card_set)`);
         });
 
         const imported = timedFinalizationPhase(
@@ -974,7 +1058,7 @@ export function createSqliteScryfallRepository(
         const rows = await db
           .select()
           .from(cardPrinting)
-          .orderBy(cardPrinting.printedName, cardPrinting.setCode, cardPrinting.collectorNumber);
+          .orderBy(cardPrinting.printedName, cardPrinting.setId, cardPrinting.collectorNumber);
           const finishRows = await db.select().from(cardPrintingFinish);
           const finishesByPrinting = new Map<string, string[]>();
           for (const finish of finishRows) {
@@ -995,6 +1079,22 @@ export function createSqliteScryfallRepository(
             .from(cardPrintingPart)
             .orderBy(cardPrintingPart.cardPrintingId, cardPrintingPart.partIndex);
         return ok(rows.map(toCardPrintingPart));
+      } catch (error) {
+        return err(toRepositoryError(error));
+      }
+    },
+
+    async listCardSets() {
+      try {
+        return ok((await db.select().from(cardSet).orderBy(cardSet.name, cardSet.code)).map((row) => ({...row})));
+      } catch (error) {
+        return err(toRepositoryError(error));
+      }
+    },
+
+    async listCardPrintingPromoTypes() {
+      try {
+        return ok((await db.select().from(cardPrintingPromoType).orderBy(cardPrintingPromoType.cardPrintingId, cardPrintingPromoType.promoType)).map((row) => ({...row})));
       } catch (error) {
         return err(toRepositoryError(error));
       }
@@ -1175,13 +1275,33 @@ type StagedCardPrintingRow = {
   readonly cardIdentityId: string;
   readonly layout: string;
   readonly printedName: string | null;
-  readonly setCode: string;
+  readonly setId: string;
   readonly collectorNumber: string;
   readonly language: string;
   readonly tcgplayerId: number | null;
   readonly cardmarketId: number | null;
   readonly sourcePageUri: string;
 };
+
+type StagedCardSetRow = {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly setType: string;
+  readonly apiUri: string;
+  readonly cardSearchUri: string;
+  readonly sourcePageUri: string;
+};
+
+function sameStagedCardSet(staged: StagedCardSetRow, incoming: CardSet): boolean {
+  return staged.id === incoming.id
+      && staged.code === incoming.code
+      && staged.name === incoming.name
+      && staged.setType === incoming.setType
+      && staged.apiUri === incoming.apiUri
+      && staged.cardSearchUri === incoming.cardSearchUri
+      && staged.sourcePageUri === incoming.sourcePageUri;
+}
 
 type StagedCardPrintingPartRow = {
   readonly cardPrintingId: string;
@@ -1205,7 +1325,7 @@ function sameStagedCardPrinting(
       && staged.cardIdentityId === incoming.cardIdentityId
       && staged.layout === incoming.layout
       && staged.printedName === incoming.printedName
-      && staged.setCode === incoming.setCode
+      && staged.setId === incoming.setId
       && staged.collectorNumber === incoming.collectorNumber
       && staged.language === incoming.language
       && staged.tcgplayerId === incoming.tcgplayerId
@@ -1310,12 +1430,13 @@ function toCardIdentityFormatLegality(
 }
 
 function toCardPrinting(row: typeof cardPrinting.$inferSelect, finishes: readonly string[]): CardPrinting {
+  if (row.setId === null) throw new Error(`Card Printing ${row.id} requires an all_cards reimport for Card Set metadata.`);
   return {
     id: row.id,
     cardIdentityId: row.cardIdentityId,
     layout: row.layout,
     printedName: row.printedName,
-    setCode: row.setCode,
+    setId: row.setId,
     collectorNumber: row.collectorNumber,
       finishes,
     language: row.language,

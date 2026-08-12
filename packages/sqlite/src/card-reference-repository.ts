@@ -3,6 +3,7 @@ import {err, ok, type Result} from "neverthrow";
 import type {
   CardIdentity,
   CardIdentityDetail,
+  CardSet,
   CardReferenceRepository,
   CardReferenceRepositoryError,
   SearchCardIdentitiesInput
@@ -16,6 +17,7 @@ import {
   cardIdentityTag,
   cardIdentityTagAlias,
   cardIdentityTagging,
+  cardSet,
   scryfallBulkDataImport
 } from "./schema";
 
@@ -53,6 +55,25 @@ export function createSqliteCardReferenceRepository(db: TomekinDatabase): CardRe
         const aliasIds = db.select({tagId: cardIdentityTagAlias.tagId}).from(cardIdentityTagAlias).where(like(cardIdentityTagAlias.alias, `%${query}%`)).all().map((row) => row.tagId);
         const aliasRows = aliasIds.length > 0 ? db.select().from(cardIdentityTag).where(inArray(cardIdentityTag.id, aliasIds)).all() : [];
         return [...direct, ...aliasRows].filter((row, index, rows) => rows.findIndex((candidate) => candidate.id === row.id) === index).slice(0, input.limit ?? 25);
+      });
+    },
+    async searchCardSets(input) {
+      return wrap(() => {
+        const limit = Math.min(input.limit ?? 25, 100);
+        const query = input.query?.trim().toLowerCase() ?? "";
+        const rows = db.$client.prepare(`
+          SELECT id, code, name, set_type AS setType, api_uri AS apiUri,
+                 card_search_uri AS cardSearchUri, source_page_uri AS sourcePageUri
+          FROM card_set
+          WHERE ?1 = '' OR lower(code) LIKE '%' || ?1 || '%' OR lower(name) LIKE '%' || ?1 || '%'
+          ORDER BY CASE
+            WHEN lower(code) = ?1 THEN 0
+            WHEN lower(name) = ?1 THEN 1
+            ELSE 2
+          END, lower(name), lower(code), id
+          LIMIT ?2
+        `).all(query, limit) as CardSet[];
+        return rows;
       });
     },
     async summarizeReferenceSupport() {

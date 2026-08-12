@@ -19,6 +19,7 @@ export const AgentToolNameSchema = z.enum([
   "query_cards",
   "get_card_identity",
   "search_card_identity_tags",
+  "search_card_sets",
   "summarize_reference_support",
   "get_format_constraints",
   "resolve_decklist_cards",
@@ -34,6 +35,7 @@ export type AgentToolName = z.infer<typeof AgentToolNameSchema>;
 
 export const GetCardIdentityArgsSchema = z.object({idOrName: z.string().min(1)});
 export const SearchCardIdentityTagsArgsSchema = z.object({query: z.string().optional(), limit: z.number().int().positive().max(100).optional()});
+export const SearchCardSetsArgsSchema = z.object({query: z.string().optional(), limit: z.number().int().positive().max(100).optional()});
 export const ResolveDecklistCardsArgsSchema = z.object({names: z.array(z.string().min(1)).min(1)});
 export const ValidateDeckCandidateArgsSchema = z.strictObject({
     cards: z.array(z.object({
@@ -97,7 +99,13 @@ export function createAgentToolHandlers(repositories: AgentToolRepositories) {
           const ready = await requireReferenceData(repositories.cardReference);
           if (ready.isErr()) return ready;
           return repositories.cardReference.searchCardIdentityTags(args);
-    },
+      },
+      async searchCardSets(input: unknown) {
+          const args = SearchCardSetsArgsSchema.parse(input);
+          const ready = await requireReferenceData(repositories.cardReference);
+          if (ready.isErr()) return ready;
+          return repositories.cardReference.searchCardSets(args);
+      },
     summarizeReferenceSupport() {
       return repositories.cardReference.summarizeReferenceSupport();
     },

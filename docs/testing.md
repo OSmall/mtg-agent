@@ -131,6 +131,15 @@ rows and accepted and rejected Copy Limit Override wording. Repository coverage 
 Printing records import once while conflicting duplicates reject the import without replacing the previous usable
 dataset.
 
+Card Set and Printing coverage should prove Set metadata deduplication and conflict rollback, UUID foreign keys,
+source-page query cleanup without stripping functional search queries, deterministic Set discovery, promo-type
+deduplication, and `withPrinting`/`withoutPrinting` existence semantics. Mixed UB/non-UB identities and same-Printing
+Set-plus-promo correlation are required regression cases.
+
+Migration coverage should prove that populated legacy Card Printings block the strict `set_id` migration atomically,
+the explicit cleanup removes only regenerable Collection/Printing rows, and saved Card Identities and Deck Candidates
+survive cleanup and migration. Fresh databases must contain no synthetic placeholder Card Set.
+
 Scryfall sync tests should use small package-local Scryfall fixtures, not real Scryfall bulk data files. Real Scryfall bulk files are too large for ordinary tests and must not be required by `bun test`.
 
 Tests must not call live Scryfall network services as part of `bun test`.
