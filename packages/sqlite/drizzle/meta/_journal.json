@@ -43,6 +43,13 @@
       "when": 1786015875353,
       "tag": "0005_short_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786543028819,
+      "tag": "0006_solid_doctor_doom",
+      "breakpoints": true
     }
   ]
 }

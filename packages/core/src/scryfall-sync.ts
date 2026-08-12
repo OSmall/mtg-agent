@@ -56,7 +56,7 @@ export type ScryfallBulkDataType = z.infer<typeof ScryfallBulkDataTypeSchema>;
 export const legacyScryfallImportContractRevision = 0;
 export const requiredScryfallImportContractRevisions = {
     oracle_cards: 2,
-    all_cards: 2,
+    all_cards: 3,
     oracle_tags: 1,
 } as const satisfies Readonly<Record<ScryfallBulkDataType, number>>;
 export const ImportContractRevisionSchema = z.number().int().nonnegative();
@@ -275,12 +275,23 @@ export type CardIdentityImportRecord = z.infer<
   typeof CardIdentityImportRecordSchema
 >;
 
+export const CardSetSchema = z.object({
+  id: z.uuid(),
+  code: z.string().min(1),
+  name: z.string().min(1),
+  setType: z.string().min(1),
+  apiUri: z.url(),
+  cardSearchUri: z.url(),
+  sourcePageUri: z.url(),
+});
+export type CardSet = z.infer<typeof CardSetSchema>;
+
 export const CardPrintingSchema = z.object({
   id: z.uuid(),
   cardIdentityId: z.uuid(),
     layout: CardPrintingLayoutSchema,
   printedName: z.string().min(1).nullable(),
-  setCode: z.string().min(1),
+  setId: z.uuid(),
   collectorNumber: z.string().min(1),
   finishes: z.array(z.string()).readonly(),
   language: z.string().min(1),
@@ -289,6 +300,12 @@ export const CardPrintingSchema = z.object({
   sourcePageUri: z.url(),
 });
 export type CardPrinting = z.infer<typeof CardPrintingSchema>;
+
+export const CardPrintingPromoTypeSchema = z.object({
+  cardPrintingId: z.uuid(),
+  promoType: z.string().min(1),
+});
+export type CardPrintingPromoType = z.infer<typeof CardPrintingPromoTypeSchema>;
 
 export const CardPrintingPartSchema = z.object({
     cardPrintingId: z.uuid(),
@@ -306,8 +323,10 @@ export const CardPrintingPartSchema = z.object({
 export type CardPrintingPart = z.infer<typeof CardPrintingPartSchema>;
 
 export const CardPrintingImportRecordSchema = z.object({
+    set: CardSetSchema,
     printing: CardPrintingSchema,
     parts: z.array(CardPrintingPartSchema).readonly(),
+    promoTypes: z.array(CardPrintingPromoTypeSchema).readonly(),
 });
 export type CardPrintingImportRecord = z.infer<typeof CardPrintingImportRecordSchema>;
 
@@ -444,9 +463,16 @@ export const RawScryfallAllCardSchema = z.object({
             }),
         )
         .optional(),
+  set_id: z.uuid(),
   set: z.string().min(1),
+  set_name: z.string().min(1),
+  set_type: z.string().min(1),
+  set_uri: z.url(),
+  set_search_uri: z.url(),
+  scryfall_set_uri: z.url(),
   collector_number: z.string().min(1),
   finishes: z.array(z.string()),
+  promo_types: z.array(z.string().min(1)).optional(),
   lang: z.string().min(1),
   scryfall_uri: z.url(),
 });
@@ -498,7 +524,7 @@ export function mapRawScryfallOracleCardToCardIdentityImportRecord(
       defense: card.defense ?? null,
       edhrecRank: card.edhrec_rank ?? null,
       gameChanger: card.game_changer,
-    sourcePageUri: card.scryfall_uri,
+    sourcePageUri: stripQuery(card.scryfall_uri),
   };
 
   return {
@@ -533,18 +559,27 @@ export function mapRawScryfallAllCardToCardPrintingImportRecord(
 ): CardPrintingImportRecord {
     const cardIdentityId = getAllCardIdentityId(card);
   return {
+      set: {
+          id: card.set_id,
+          code: card.set,
+          name: card.set_name,
+          setType: card.set_type,
+          apiUri: card.set_uri,
+          cardSearchUri: card.set_search_uri,
+          sourcePageUri: stripQuery(card.scryfall_set_uri),
+      },
       printing: {
           id: card.id,
           cardIdentityId,
           layout: card.layout === "reversible_card" ? "reversible_card" : "standard",
           printedName: card.printed_name ?? null,
-          setCode: card.set,
+          setId: card.set_id,
           collectorNumber: card.collector_number,
           finishes: card.finishes,
           language: card.lang,
           tcgplayerId: card.tcgplayer_id ?? null,
           cardmarketId: card.cardmarket_id ?? null,
-          sourcePageUri: card.scryfall_uri,
+          sourcePageUri: stripQuery(card.scryfall_uri),
       },
       parts:
           card.card_faces?.map((face, partIndex) => ({
@@ -560,7 +595,17 @@ export function mapRawScryfallAllCardToCardPrintingImportRecord(
               illustrationId: face.illustration_id ?? null,
               imageUris: face.image_uris ?? null,
           })) ?? [],
+      promoTypes: (card.promo_types ?? []).map((promoType) => ({
+          cardPrintingId: card.id,
+          promoType,
+      })),
   };
+}
+
+function stripQuery(uri: string): string {
+    const parsed = new URL(uri);
+    parsed.search = "";
+    return parsed.toString();
 }
 
 export function mapRawScryfallAllCardToCardPrinting(

@@ -150,6 +150,16 @@ describe("agent tool handlers", () => {
         if (result.isErr()) throw new Error(result.error.message);
         expect(result.value.portableDecklist).toBe("Mainboard\n60 Forest\n\nSideboard\n15 Forest");
     });
+
+    test("searches Card Sets through the public handler", async () => {
+        const handlers = createAgentToolHandlers(repositoriesWithCards([]));
+
+        const result = await handlers.searchCardSets({query: "WHO", limit: 10});
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) throw new Error(result.error.message);
+        expect(result.value).toEqual([expect.objectContaining({code: "who", name: "Doctor Who"})]);
+    });
 });
 
 function modernBrief() {
@@ -220,6 +230,15 @@ function repositoriesWithCards(cards: readonly CardIdentity[]): AgentToolReposit
                 return detail ? ok(detail) : err({type: "not_found" as const, message: `Unknown card: ${idOrName}`});
             },
             searchCardIdentityTags: async () => ok([]),
+            searchCardSets: async ({query}) => ok(query?.toLowerCase() === "who" ? [{
+                id: "44444444-4444-4444-8444-444444444444",
+                code: "who",
+                name: "Doctor Who",
+                setType: "expansion",
+                apiUri: "https://api.scryfall.com/sets/44444444-4444-4444-8444-444444444444",
+                cardSearchUri: "https://api.scryfall.com/cards/search?q=e%3Awho",
+                sourcePageUri: "https://scryfall.com/sets/who",
+            }] : []),
             summarizeReferenceSupport: async () => ok({
                 required: ["oracle_cards", "all_cards", "oracle_tags"],
                 imports: [{

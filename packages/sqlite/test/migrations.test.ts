@@ -4,11 +4,105 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {sql} from "drizzle-orm";
 import {createTestRootLoggerFromEnv} from "@tomekin/core";
-import {closeDatabase, createSqliteCardReferenceRepository, openDatabase} from "@tomekin/sqlite";
+import {closeDatabase, createSqliteCardReferenceRepository, openDatabase, prepareLegacyDatabaseForCardSetMigration} from "@tomekin/sqlite";
 
 const testLog = createTestRootLoggerFromEnv();
 
 describe("SQLite migrations", () => {
+    test("Card Set migration cleanup removes only regenerable rows", () => {
+        const dbPath = join(mkdtempSync(join(tmpdir(), "tomekin-card-set-cleanup-")), "test.sqlite");
+        const migrationsDirectory = new URL("../drizzle/", import.meta.url);
+        let db = openDatabase(dbPath, {log: testLog});
+        try {
+            for (const filename of readdirSync(migrationsDirectory).filter((name) => /^000[0-5]_.*\.sql$/.test(name)).sort()) {
+                runMigrationSql(db, new URL(filename, migrationsDirectory));
+            }
+            db.run(sql.raw(`INSERT INTO card_identity (id,name,layout,mana_value,type_line,copy_limit_override_kind,color_identity,keywords_json,game_changer,source_page_uri)
+                VALUES ('11111111-1111-4111-8111-111111111111','Sol Ring','normal',1,'Artifact','none','','[]',0,'https://scryfall.com/card/v10/12/sol-ring')`));
+            db.run(sql.raw(`INSERT INTO card_printing (id,card_identity_id,layout,set_code,collector_number,language,source_page_uri)
+                VALUES ('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','standard','v10','12','en','https://scryfall.com/card/v10/12/sol-ring')`));
+            db.run(sql.raw(`INSERT INTO collection_location (id,name,type) VALUES ('loc','Binder','binder')`));
+            db.run(sql.raw(`INSERT INTO collection_card (id,quantity,collection_location_id,finish,card_printing_id,misprint,altered,source_row_number)
+                VALUES ('owned',1,'loc','nonfoil','22222222-2222-4222-8222-222222222222',0,0,2)`));
+            db.run(sql.raw(`INSERT INTO deck_candidate (id,label,format,brief_json,markdown,created_at,updated_at)
+                VALUES ('candidate','Saved Candidate','commander','{}','# Saved Candidate',1,1)`));
+            db.run(sql.raw(`INSERT INTO deck_candidate_card (id,deck_candidate_id,card_identity_id,quantity,section,sort_order)
+                VALUES ('candidate-card','candidate','11111111-1111-4111-8111-111111111111',1,'mainboard',0)`));
+        } finally {
+            closeDatabase(db);
+        }
+
+        const summary = prepareLegacyDatabaseForCardSetMigration(dbPath, {log: testLog});
+        expect(summary).toEqual(expect.objectContaining({
+            collectionCardsRemoved: 1,
+            cardPrintingsRemoved: 1,
+            deckCandidatesPreserved: 1,
+            deckCandidateCardsPreserved: 1,
+        }));
+
+        db = openDatabase(dbPath, {log: testLog});
+        try {
+            expect(db.$client.query("SELECT COUNT(*) AS count FROM card_printing").get()).toEqual({count: 0});
+            expect(db.$client.query("SELECT COUNT(*) AS count FROM collection_card").get()).toEqual({count: 0});
+            expect(db.$client.query("SELECT id FROM deck_candidate").get()).toEqual({id: "candidate"});
+            expect(db.$client.query("SELECT id FROM deck_candidate_card").get()).toEqual({id: "candidate-card"});
+            expect(db.$client.query("SELECT id FROM card_identity").get()).toEqual({id: "11111111-1111-4111-8111-111111111111"});
+        } finally {
+            closeDatabase(db);
+        }
+
+        expect(() => prepareLegacyDatabaseForCardSetMigration(dbPath, {log: testLog})).not.toThrow();
+    });
+
+    test("0006 rejects legacy Printings, then preserves Deck Candidates after explicit reference cleanup", async () => {
+        const dbPath = join(mkdtempSync(join(tmpdir(), "tomekin-migration-0006-")), "test.sqlite");
+        const db = openDatabase(dbPath, {log: testLog});
+        try {
+            const migrationsDirectory = new URL("../drizzle/", import.meta.url);
+            for (const filename of readdirSync(migrationsDirectory).filter((name) => /^000[0-5]_.*\.sql$/.test(name)).sort()) {
+                runMigrationSql(db, new URL(filename, migrationsDirectory));
+            }
+            db.run(sql.raw(`INSERT INTO card_identity (id,name,layout,mana_value,type_line,copy_limit_override_kind,color_identity,keywords_json,game_changer,source_page_uri)
+                VALUES ('11111111-1111-4111-8111-111111111111','Sol Ring','normal',1,'Artifact','none','','[]',0,'https://scryfall.com/card/v10/12/sol-ring')`));
+            db.run(sql.raw(`INSERT INTO card_printing (id,card_identity_id,layout,set_code,collector_number,language,source_page_uri)
+                VALUES ('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','standard','v10','12','en','https://scryfall.com/card/v10/12/sol-ring')`));
+            db.run(sql.raw(`INSERT INTO collection_location (id,name,type) VALUES ('loc','Binder','binder')`));
+            db.run(sql.raw(`INSERT INTO collection_card (id,quantity,collection_location_id,finish,card_printing_id,misprint,altered,source_row_number)
+                VALUES ('owned',1,'loc','nonfoil','22222222-2222-4222-8222-222222222222',0,0,2)`));
+            db.run(sql.raw(`INSERT INTO scryfall_bulk_data_import (id,bulk_data_type,import_contract_revision,status,started_at,completed_at,imported_record_count,warnings_json,blocking_errors_json)
+                VALUES ('44444444-4444-4444-8444-444444444444','all_cards',2,'succeeded',1,2,1,'[]','[]')`));
+            db.run(sql.raw(`INSERT INTO deck_candidate (id,label,format,format_anchor,brief_json,collection_import_timestamp,markdown,created_at,updated_at)
+                VALUES ('candidate','Saved Candidate','commander','Sol Ring','{}',NULL,'# Saved Candidate',1,1)`));
+            db.run(sql.raw(`INSERT INTO deck_candidate_card (id,deck_candidate_id,card_identity_id,quantity,section,sort_order,note)
+                VALUES ('candidate-card','candidate','11111111-1111-4111-8111-111111111111',1,'mainboard',0,NULL)`));
+
+            const migration = readdirSync(migrationsDirectory).find((name) => /^0006_.*\.sql$/.test(name));
+            expect(migration).toBeDefined();
+            expect(() => runMigrationSql(db, new URL(migration!, migrationsDirectory))).toThrow();
+            expect(db.$client.query("PRAGMA table_info(card_printing)").all().some((column: any) => column.name === "set_code")).toBe(true);
+            expect(db.$client.query("SELECT id FROM collection_card").get()).toEqual({id: "owned"});
+
+            db.run(sql`DELETE FROM collection_card`);
+            db.run(sql`DELETE FROM collection_location`);
+            db.run(sql`DELETE FROM card_printing_finish`);
+            db.run(sql`DELETE FROM card_printing_part`);
+            db.run(sql`DELETE FROM card_printing`);
+            runMigrationSql(db, new URL(migration!, migrationsDirectory));
+
+            expect(db.$client.query("PRAGMA table_info(card_printing)").all().some((column: any) => column.name === "set_code")).toBe(false);
+            expect(db.$client.query("PRAGMA table_info(card_printing)").all().find((column: any) => column.name === "set_id")).toEqual(expect.objectContaining({notnull: 1}));
+            expect(db.$client.query("SELECT id, label FROM deck_candidate").get()).toEqual({id: "candidate", label: "Saved Candidate"});
+            expect(db.$client.query("SELECT id, card_identity_id FROM deck_candidate_card").get()).toEqual({id: "candidate-card", card_identity_id: "11111111-1111-4111-8111-111111111111"});
+            const status = await createSqliteCardReferenceRepository(db).summarizeReferenceSupport();
+            if (status.isErr()) throw new Error(status.error.message);
+            expect(status.value.reimportRequired).toContain("all_cards");
+            expect(() => db.run(sql.raw(`INSERT INTO card_printing (id,card_identity_id,layout,set_id,collector_number,language,source_page_uri)
+                VALUES ('33333333-3333-4333-8333-333333333333','11111111-1111-4111-8111-111111111111','standard','missing-set','1','en','https://scryfall.com/card/example')`))).toThrow();
+        } finally {
+            closeDatabase(db);
+        }
+    });
+
     test("0005 preserves Commander candidates while cutting over sections and reference derivations", async () => {
         const dbPath = join(mkdtempSync(join(tmpdir(), "tomekin-migration-0005-")), "test.sqlite");
         const db = openDatabase(dbPath, {log: testLog});

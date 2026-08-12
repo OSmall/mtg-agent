@@ -5,6 +5,7 @@ import type {
     CardIdentityPart,
     CardIdentityTag,
     CardIdentityTagging,
+    CardSet,
     ScryfallBulkDataImport,
     ScryfallBulkDataType,
 } from "./scryfall-sync";
@@ -39,6 +40,11 @@ export type SearchCardIdentityTagsInput = {
   readonly limit?: number | undefined;
 };
 
+export type SearchCardSetsInput = {
+  readonly query?: string | undefined;
+  readonly limit?: number | undefined;
+};
+
 export type ReferenceDataStatus = {
   readonly required: readonly ScryfallBulkDataType[];
   readonly imports: readonly ScryfallBulkDataImport[];
@@ -52,6 +58,7 @@ export type CardReferenceRepository = {
   searchCardIdentities(input: SearchCardIdentitiesInput): Promise<Result<readonly CardIdentity[], CardReferenceRepositoryError>>;
   getCardIdentity(idOrName: string): Promise<Result<CardIdentityDetail, CardReferenceRepositoryError>>;
   searchCardIdentityTags(input: SearchCardIdentityTagsInput): Promise<Result<readonly CardIdentityTag[], CardReferenceRepositoryError>>;
+  searchCardSets(input: SearchCardSetsInput): Promise<Result<readonly CardSet[], CardReferenceRepositoryError>>;
   summarizeReferenceSupport(): Promise<Result<ReferenceDataStatus, CardReferenceRepositoryError>>;
   listCardIdentitiesByIds(ids: readonly string[]): Promise<Result<readonly CardIdentityDetail[], CardReferenceRepositoryError>>;
 };

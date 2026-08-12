@@ -261,15 +261,28 @@ function toRawOracleCardFixture(row: Record<string, string>, index: number) {
 }
 
 function toRawAllCardFixture(row: Record<string, string>, index: number) {
+    const code = row["Set code"].toLowerCase();
+    const setId = fixtureSetUuid(code);
     return {
         ...toRawOracleCardFixture(row, index),
         id: row["Scryfall ID"],
         oracle_id: fakeUuid(index, "20000000"),
-        set: row["Set code"].toLowerCase(),
+        set_id: setId,
+        set: code,
+        set_name: row["Set name"],
+        set_type: "expansion",
+        set_uri: `https://api.scryfall.com/sets/${setId}`,
+        set_search_uri: `https://api.scryfall.com/cards/search?q=e%3A${code}&unique=prints`,
+        scryfall_set_uri: `https://scryfall.com/sets/${code}?utm_source=api`,
         collector_number: row["Collector number"],
         finishes: [row.Foil === "normal" ? "nonfoil" : row.Foil],
         lang: row.Language,
     };
+}
+
+function fixtureSetUuid(code: string): string {
+    const suffix = [...code].map((character) => character.charCodeAt(0).toString(16)).join("").padEnd(12, "0").slice(0, 12);
+    return `30000000-0000-4000-8000-${suffix}`;
 }
 
 function fakeUuid(index: number, prefix: string): string {
@@ -327,7 +340,13 @@ const rawAllCards = [
     {
         ...rawOracleCards[0],
         id: "11111111-1111-4111-8111-111111111111",
+        set_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
         set: "v10",
+        set_name: "From the Vault: Relics",
+        set_type: "from_the_vault",
+        set_uri: "https://api.scryfall.com/sets/dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        set_search_uri: "https://api.scryfall.com/cards/search?q=e%3Av10&unique=prints",
+        scryfall_set_uri: "https://scryfall.com/sets/v10?utm_source=api",
         collector_number: "12",
         finishes: ["nonfoil", "foil"],
         lang: "en"
@@ -335,7 +354,13 @@ const rawAllCards = [
     {
         ...rawOracleCards[1],
         id: "22222222-2222-4222-8222-222222222222",
+        set_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
         set: "m11",
+        set_name: "Magic 2011",
+        set_type: "core",
+        set_uri: "https://api.scryfall.com/sets/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        set_search_uri: "https://api.scryfall.com/cards/search?q=e%3Am11&unique=prints",
+        scryfall_set_uri: "https://scryfall.com/sets/m11?utm_source=api",
         collector_number: "168",
         finishes: ["nonfoil", "foil"],
         lang: "en"

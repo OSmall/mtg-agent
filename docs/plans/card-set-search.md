@@ -2,8 +2,8 @@
 
 ## Status
 
-Planned on 12 August 2026. This is the decision-complete implementation handoff for local Card Set discovery,
-printing-scoped Card Query predicates, and explicit printing existence semantics.
+Delivered on 13 August 2026. This plan records the implemented local Card Set discovery, printing-scoped Card Query
+predicates, explicit printing existence semantics, and the strict legacy-database upgrade path.
 
 ## Goal
 

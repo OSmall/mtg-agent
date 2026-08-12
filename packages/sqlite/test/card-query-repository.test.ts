@@ -11,6 +11,7 @@ import {
     cardIdentityTagging,
     cardIdentityTagHierarchy,
     cardPrinting,
+    cardSet,
     closeDatabase,
     collectionCard,
     collectionLocation,
@@ -71,12 +72,13 @@ describe("SQLite Card Query repository", () => {
                 {cardIdentityId: "11111111-1111-4111-8111-111111111111", format: "commander", legality: "legal"},
                 {cardIdentityId: "55555555-5555-4555-8555-555555555555", format: "commander", legality: "legal"},
             ]).run();
+            ensureTestCardSet(db);
             db.insert(cardPrinting).values({
                 id: "22222222-2222-4222-8222-222222222222",
                 cardIdentityId: "11111111-1111-4111-8111-111111111111",
                 layout: "standard",
                 printedName: null,
-                setCode: "CMM",
+                setId: TEST_SET_ID,
                 collectorNumber: "400",
                 language: "en",
                 tcgplayerId: null,
@@ -133,7 +135,7 @@ describe("SQLite Card Query repository", () => {
                             quantity: 1,
                             altered: false,
                             misprint: false,
-                            setCode: "CMM",
+                            setCode: "cmm",
                             collectorNumber: "400",
                         }),
                     ],
@@ -784,6 +786,7 @@ function insertIdentityWithCollectionRows(db: ReturnType<typeof openDatabase>, o
         finish?: "nonfoil" | "foil" | "etched";
     }[];
 }) {
+    ensureTestCardSet(db);
     db.insert(cardIdentity).values(identity(options.identityId, options.name)).run();
     options.rows.forEach((row, index) => {
         const printingId = `${options.identityId}-printing-${index + 1}`;
@@ -794,7 +797,7 @@ function insertIdentityWithCollectionRows(db: ReturnType<typeof openDatabase>, o
             cardIdentityId: options.identityId,
             layout: "standard",
             printedName: null,
-            setCode: "CMM",
+            setId: TEST_SET_ID,
             collectorNumber: String(400 + index),
             language: "en",
             tcgplayerId: null,
@@ -834,13 +837,14 @@ function insertIdentityWithCollection(db: ReturnType<typeof openDatabase>, optio
     locationType: "binder" | "deck";
     quantity: number;
 }) {
+    ensureTestCardSet(db);
     db.insert(cardIdentity).values(identity(options.identityId, options.name)).run();
     db.insert(cardPrinting).values({
         id: options.printingId,
         cardIdentityId: options.identityId,
         layout: "standard",
         printedName: null,
-        setCode: "CMM",
+        setId: TEST_SET_ID,
         collectorNumber: "400",
         language: "en",
         tcgplayerId: null,
@@ -867,6 +871,20 @@ function insertIdentityWithCollection(db: ReturnType<typeof openDatabase>, optio
         addedAt: null,
         sourceRowNumber: 2,
     }).run();
+}
+
+const TEST_SET_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+function ensureTestCardSet(db: ReturnType<typeof openDatabase>) {
+    db.insert(cardSet).values({
+        id: TEST_SET_ID,
+        code: "cmm",
+        name: "Commander Masters",
+        setType: "masters",
+        apiUri: "https://api.scryfall.com/sets/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        cardSearchUri: "https://api.scryfall.com/cards/search?q=e%3Acmm",
+        sourcePageUri: "https://scryfall.com/sets/cmm",
+    }).onConflictDoNothing().run();
 }
 
 function identity(id: string, name: string) {

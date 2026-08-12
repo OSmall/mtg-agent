@@ -181,11 +181,54 @@ function compileFilter(filter: CardQueryFilter, state: CompilerState, inputScope
     }
     if (filter.op === "withTagging") return compileWithTagging(filter.args[0], state);
     if (filter.op === "withCollectionCard") return compileFilter(filter.args[0], state, inputScope);
+    if (filter.op === "withPrinting" || filter.op === "withoutPrinting") return compilePrintingRelationship(filter.args[0], state, filter.op === "withoutPrinting");
     if (!isAtomicFilter(filter)) return {match: fragment("0 = 1")};
 
     const property = filter.args[0].property;
     if (property.startsWith("collection.")) return compileCollectionFilter(filter, state, inputScope);
     return {match: compileReferenceFilter(filter, state)};
+}
+
+function compilePrintingRelationship(filter: CardQueryFilter, state: CompilerState, negative: boolean): CompiledFilter {
+    const id = state.nextScopeId++;
+    const printingAlias = `cp_printing_${id}`;
+    const setAlias = `cs_printing_${id}`;
+    const predicate = compilePrintingScopeFilter(filter, state, printingAlias, setAlias);
+    return {match: joinFragments([
+        fragment(`${negative ? "not exists" : "exists"} (select 1 from card_printing ${printingAlias} join card_set ${setAlias} on ${setAlias}.id = ${printingAlias}.set_id where ${printingAlias}.card_identity_id = ci.id and `),
+        predicate,
+        fragment(")"),
+    ])};
+}
+
+function compilePrintingScopeFilter(filter: CardQueryFilter, state: CompilerState, printingAlias: string, setAlias: string): SqlFragment {
+    if (filter.op === "and" || filter.op === "or") {
+        return joinSql(filter.args.map((child) => compilePrintingScopeFilter(child, state, printingAlias, setAlias)), filter.op === "and" ? " and " : " or ", filter.op === "and" ? "1 = 1" : "0 = 1");
+    }
+    if (filter.op === "not") return wrap("not (", compilePrintingScopeFilter(filter.args[0], state, printingAlias, setAlias), ")");
+    if (!isAtomicFilter(filter)) return fragment("0 = 1");
+    const property = filter.args[0].property;
+    const value = filter.args[1];
+    if (property === "printing.universesBeyond") {
+        const promoAlias = `cppt_ub_${state.nextScopeId++}`;
+        const exists = fragment(`exists (select 1 from card_printing_promo_type ${promoAlias} where ${promoAlias}.card_printing_id = ${printingAlias}.id and ${promoAlias}.promo_type = 'universesbeyond')`);
+        return value === true ? exists : wrap("not (", exists, ")");
+    }
+    if (property === "printing.promoType") {
+        const promoAlias = `cppt_${state.nextScopeId++}`;
+        const predicate = filter.op === "in"
+            ? compileIn(`${promoAlias}.promo_type`, value as readonly CardQueryScalar[], property)
+            : compileScalarComparison(`${promoAlias}.promo_type`, filter.op, value as CardQueryScalar);
+        return joinFragments([
+            fragment(`exists (select 1 from card_printing_promo_type ${promoAlias} where ${promoAlias}.card_printing_id = ${printingAlias}.id and `),
+            predicate,
+            fragment(")"),
+        ]);
+    }
+    const column = property === "printing.setCode" ? `${setAlias}.code` : `${setAlias}.set_type`;
+    return filter.op === "in"
+        ? compileIn(column, value as readonly CardQueryScalar[], property)
+        : compileScalarComparison(column, filter.op, value as CardQueryScalar);
 }
 
 function compileAnd(args: readonly CardQueryFilter[], state: CompilerState, inputScope?: CollectionScope): CompiledFilter {
@@ -498,11 +541,12 @@ function hydrateCollectionRows(db: TomekinDatabase, ids: readonly string[], scop
   ci.id as cardIdentityId,
   cp.id as cardPrintingId,
   cp.printed_name as printedName,
-  cp.set_code as setCode,
+  cs.code as setCode,
   cp.collector_number as collectorNumber,
   cp.language
 from card_identity ci
 join card_printing cp on cp.card_identity_id = ci.id
+join card_set cs on cs.id = cp.set_id
 join collection_card cc on cc.card_printing_id = cp.id
 join collection_location cl on cl.id = cc.collection_location_id
 where ci.id in (${placeholders(ids.length)})`, [...ids]),
@@ -598,7 +642,7 @@ function isCollectionQuantityFilter(filter: CardQueryFilter): boolean {
 }
 
 function isAtomicFilter(filter: CardQueryFilter): filter is AtomicCardQueryFilter {
-    return filter.op !== "and" && filter.op !== "or" && filter.op !== "not" && filter.op !== "withTagging" && filter.op !== "withCollectionCard";
+    return filter.op !== "and" && filter.op !== "or" && filter.op !== "not" && filter.op !== "withTagging" && filter.op !== "withCollectionCard" && filter.op !== "withPrinting" && filter.op !== "withoutPrinting";
 }
 
 function joinFragments(parts: readonly SqlFragment[]): SqlFragment {

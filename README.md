@@ -44,6 +44,25 @@ does not make hidden live Scryfall or metagame calls during normal deck-building
 Run `bun run db:sqlite:migration:apply` before normal app commands. It creates the parent directory for the configured
 SQLite database path and applies migrations from `packages/sqlite/drizzle/`.
 
+### Upgrading an existing pre-Card-Set database
+
+The Card Set migration replaces stored Printing Set codes with required Scryfall Set UUID foreign keys. Those UUIDs
+cannot be derived truthfully from the legacy database. If the migration reports existing legacy Card Printings, first
+back up the SQLite file, then run:
+
+```sh
+bun run db:sqlite:migration:prepare-card-set-search
+bun run db:sqlite:migration:apply
+bun run sync:scryfall
+bun run import:collection -- manabox /path/to/ManaBox_Collection.csv
+```
+
+The preparation command transactionally removes only the regenerable Collection snapshot and Card Printing rows. It
+preserves Card Identities, Oracle Tags, Scryfall import history, and saved Deck Candidates and their cards. It recognizes
+only the legacy `card_printing.set_code` schema and refuses to run after the Card Set migration. The subsequent Scryfall
+sync supplies real Set UUIDs, and the ManaBox reimport restores owned-card rows. Use `TOMEKIN_DB_PATH` to target a
+non-default database for every command.
+
 By default, commands use `.data/tomekin.sqlite`. Override the database path with `TOMEKIN_DB_PATH` or command-specific
 `--db` flags where supported.
 
@@ -133,6 +152,7 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
 
 - Local SQLite persistence for Scryfall reference data, Collection snapshots, and saved Deck Candidates.
 - Explicit Scryfall bulk sync for `oracle_cards`, `all_cards`, and `oracle_tags`.
+- Local Card Set discovery plus Printing-scoped Card Query filters, including Universes Beyond and promo-type semantics.
 - ManaBox Collection CSV import with blocking validation and non-destructive failed imports.
 - Format-aware opencode deck-building agent with deterministic local tools and researched 60-card construction guidance.
 - Collection Opportunity discovery across all supported Formats, with ranked viable directions before full construction.

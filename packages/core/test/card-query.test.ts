@@ -282,6 +282,35 @@ describe("Card Query validation", () => {
             }),
         ]));
     });
+
+    test("accepts printing scopes and normalizes Set codes", () => {
+        const result = parseCardQueryInput({
+            filter: {op: "withPrinting", args: [{op: "and", args: [
+                {op: "in", args: [{property: "printing.setCode"}, ["HOB", "SLD"]]},
+                {op: "not", args: [{op: "=", args: [{property: "printing.universesBeyond"}, true]}]},
+            ]}]},
+        });
+
+        expect(result.isOk()).toBe(true);
+        if (result.isErr()) throw new Error(result.error.message);
+        expect(result.value.filter).toEqual(expect.objectContaining({
+            args: [expect.objectContaining({args: expect.arrayContaining([
+                expect.objectContaining({args: [{property: "printing.setCode"}, ["hob", "sld"]]}),
+            ])})],
+        }));
+    });
+
+    test("rejects invalid Printing scope semantics", () => {
+        expectIssues(parseCardQueryInput({filter: {op: "=", args: [{property: "printing.setCode"}, "hob"]}}), [
+            ["#/filter/args/0/property", "invalid_relationship_scope"],
+        ]);
+        expectIssues(parseCardQueryInput({filter: {op: "withPrinting", args: [{op: "not", args: [
+            {op: "=", args: [{property: "printing.promoType"}, "universesbeyond"]},
+        ]}]}}), [["#/filter/args/0", "invalid_relationship_scope"]]);
+        expectIssues(parseCardQueryInput({filter: {op: "withoutPrinting", args: [{op: "withPrinting", args: [
+            {op: "=", args: [{property: "printing.setCode"}, "hob"]},
+        ]}]}}), [["#/filter/args/0", "invalid_relationship_scope"]]);
+    });
 });
 
 function firstIssue(result: ReturnType<typeof parseCardQueryInput>) {

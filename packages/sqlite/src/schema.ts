@@ -247,6 +247,29 @@ export const cardIdentityFormatLegality = sqliteTable(
     ],
 );
 
+export const cardSet = sqliteTable(
+    "card_set",
+    {
+        id: text("id").primaryKey(),
+        code: text("code").notNull(),
+        name: text("name").notNull(),
+        setType: text("set_type").notNull(),
+        apiUri: text("api_uri").notNull(),
+        cardSearchUri: text("card_search_uri").notNull(),
+        sourcePageUri: text("source_page_uri").notNull(),
+    },
+    (table) => [
+        unique("card_set_code_unique").on(table.code),
+        check("card_set_code_check", sql`length(${table.code}) > 0`),
+        check("card_set_name_check", sql`length(${table.name}) > 0`),
+        check("card_set_set_type_check", sql`length(${table.setType}) > 0`),
+        check("card_set_api_uri_check", sql`length(${table.apiUri}) > 0`),
+        check("card_set_card_search_uri_check", sql`length(${table.cardSearchUri}) > 0`),
+        check("card_set_source_page_uri_check", sql`length(${table.sourcePageUri}) > 0`),
+        index("idx_card_set_name").on(table.name),
+    ],
+);
+
 export const cardPrinting = sqliteTable(
     "card_printing",
     {
@@ -258,14 +281,19 @@ export const cardPrinting = sqliteTable(
             .notNull()
             .default("standard"),
         printedName: text("printed_name"),
-        setCode: text("set_code").notNull(),
+        setId: text("set_id")
+            .notNull()
+            .references(() => cardSet.id),
         collectorNumber: text("collector_number").notNull(),
         language: text("language").notNull(),
         tcgplayerId: integer("tcgplayer_id"),
         cardmarketId: integer("cardmarket_id"),
         sourcePageUri: text("source_page_uri").notNull(),
     },
-    (table) => [index("idx_card_printing_card_identity_id").on(table.cardIdentityId)],
+    (table) => [
+        index("idx_card_printing_card_identity_id").on(table.cardIdentityId),
+        index("idx_card_printing_set_id").on(table.setId),
+    ],
 );
 
 export const cardPrintingFinish = sqliteTable(
@@ -280,6 +308,21 @@ export const cardPrintingFinish = sqliteTable(
         primaryKey({columns: [table.cardPrintingId, table.finish]}),
         check("card_printing_finish_finish_check", sql`${table.finish} IN ('nonfoil', 'foil', 'etched')`),
         index("idx_card_printing_finish_card_printing_id").on(table.cardPrintingId),
+    ],
+);
+
+export const cardPrintingPromoType = sqliteTable(
+    "card_printing_promo_type",
+    {
+        cardPrintingId: text("card_printing_id")
+            .notNull()
+            .references(() => cardPrinting.id),
+        promoType: text("promo_type").notNull(),
+    },
+    (table) => [
+        primaryKey({columns: [table.cardPrintingId, table.promoType]}),
+        check("card_printing_promo_type_check", sql`length(${table.promoType}) > 0`),
+        index("idx_card_printing_promo_type_card_printing_id").on(table.cardPrintingId),
     ],
 );
 

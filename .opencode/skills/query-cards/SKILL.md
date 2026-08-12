@@ -6,7 +6,7 @@ description: Use when composing, fixing, or explaining filters for the `query_ca
 # Query Cards
 
 Use this reference for the `query_cards` tool. Card Query is structured card retrieval over local Card Identity,
-supported sanctioned Format legality, Card Identity Tags, and imported Collection rows. It is not SQL and does not
+related Card Printings, supported sanctioned Format legality, Card Identity Tags, and imported Collection rows. It is not SQL and does not
 accept arbitrary property paths.
 
 ## Envelope
@@ -37,12 +37,15 @@ Every filter node uses `{op, args}`.
 Boolean operators:
 
 - `and`, `or`: `args` is a non-empty array of filter nodes.
-- `not`: `args` is exactly one filter node; do not use over `collection.*` or `tag.*` predicates.
+- `not`: allowed only inside a Printing scope, over single-valued `printing.setCode`, `printing.setType`, or
+  `printing.universesBeyond` predicates. Never use it over `printing.promoType`.
 - `withTagging`: `args` is exactly one tag-only child filter. Use when tag metadata must apply to the same Card Identity
   Tagging row.
 - `withCollectionCard`: `args` is exactly one Collection-only child filter. Use for explicit Collection row-scope
   grouping
   in complex cases.
+- `withPrinting`: at least one related Card Printing must satisfy its Printing-only child filter.
+- `withoutPrinting`: no related Card Printing may satisfy its Printing-only child filter.
 
 Atomic operators:
 
@@ -82,6 +85,13 @@ Collection queryables:
 - `collection.finish`
 - `collection.altered`
 - `collection.misprint`
+
+Printing queryables (only inside `withPrinting` or `withoutPrinting`):
+
+- `printing.setCode`: exact `=` or `in`; input is normalized to lowercase.
+- `printing.setType`: exact `=` or `in`.
+- `printing.promoType`: exact `=` or `in`.
+- `printing.universesBeyond`: exact boolean `=`; derived from the `universesbeyond` promo type.
 
 Sortable properties:
 
@@ -133,6 +143,27 @@ Inside `withCollectionCard`, only these are allowed:
 Do not use `identity.*`, `legality.*`, `tag.*`, `hasTagInHierarchy`, nested relationship-scope operators, or `not`
 inside
 `withCollectionCard`.
+
+Inside a Printing scope, all child predicates refer to the same Card Printing and its one Card Set. Nested relationship
+scopes are invalid. Resolve user-facing Set names and current Secret Lair codes with `search_card_sets`; do not infer
+codes from Set type or a hardcoded list.
+
+For ordinary “no Universes Beyond” acquisition guidance, prefer an identity that has an acceptable printing:
+
+```json
+{"filter":{"op":"withPrinting","args":[{"op":"=","args":[{"property":"printing.universesBeyond"},false]}]}}
+```
+
+This retains an identity with both UB and non-UB printings. Only when the user explicitly means “never printed as
+Universes Beyond” use the stricter anti-existence form:
+
+```json
+{"filter":{"op":"withoutPrinting","args":[{"op":"=","args":[{"property":"printing.universesBeyond"},true]}]}}
+```
+
+Apply the same distinction to Secret Lair. After `search_card_sets`, ordinary acquisition guidance uses
+`withPrinting(not(printing.setCode in resolvedCodes))`; “never appeared in Secret Lair” uses
+`withoutPrinting(printing.setCode in resolvedCodes)`.
 
 ## Collection Rules
 
