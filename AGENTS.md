@@ -2,16 +2,28 @@
 
 ## Documentation Ownership
 
-Keep the documentation in sync with the code and with design decisions.
+Keep documentation in sync with implemented behavior and adopted design decisions.
 
-- `README.md`: user-facing setup and usage.
-- `CONTEXT.md`: glossary and domain language.
-- `docs/product-scope.md`: product promise, principles, and boundaries.
-- `docs/mvp.md`: current MVP behaviour and requirements.
-- `docs/future-direction.md`: deferred scope and later possibilities.
-- `docs/testing.md`: testing posture, layers, fixtures, and LLM boundaries.
-- `docs/plans/`: planned coding slices not yet complete.
-- `docs/adr/`: hard-to-reverse or surprising architecture decisions.
+- `README.md`: current user setup, commands, features, limitations, and the documentation index.
+- `AGENTS.md`: contribution rules, documentation ownership, and work-tracking policy.
+- `CONTEXT-MAP.md`: domain-context routing only, not general documentation navigation or implementation status.
+- `CONTEXT.md`: glossary and shared domain language only, not implementation status or work tracking.
+- `docs/product-scope.md`: product promise, principles, supported scope, boundaries, and non-goals.
+- `docs/product-behavior.md`: current user-observable workflows, contracts, and behavioral invariants.
+- `docs/architecture.md`: current components, seams, authority boundaries, and concise summaries of adopted architecture.
+- `docs/data-model.md`: implemented records, relationships, persistence behavior, and import invariants.
+- `docs/card-query.md`: the current public and compilation contract for Card Query.
+- `docs/testing.md` and `docs/testing/deck-building-workflow-scenarios.md`: testing policy, done bars,
+  fixture and scenario responsibilities, and the stable manual corpus.
+- `docs/future-direction.md`: uncommitted possibilities only, never active or deliberately queued work.
+- `docs/adr/`: historical decision rationale and trade-offs, with explicit status or supersession notes when needed.
+- `docs/agents/`: agent workflows, domain-document routing, issue-tracker mechanics, and triage conventions.
+- Canonical deck-building skills: current operational methodology and compact source provenance beside the instructions
+  that use it.
+
+GitHub Issues is the only live tracker for committed work and specifications. Do not recreate a repository Plans
+directory, Todos document, Design Branches document, or any equivalent shadow backlog. Git history is the archive for
+delivered implementation plans.
 
 ## Agent skills
 
