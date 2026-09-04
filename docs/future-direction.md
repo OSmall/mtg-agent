@@ -1,7 +1,8 @@
 # Future Direction
 
-This document captures known directions outside the achieved MVP baseline or not yet designed in detail. These items
-should not be treated as current requirements unless a later decision promotes them into scope.
+This document captures possibilities outside the current [Product Scope](./product-scope.md) and
+[Product Behavior](./product-behavior.md). These items are not current requirements or shipped behavior unless a later
+decision promotes them into scope.
 
 ## Collection Import
 

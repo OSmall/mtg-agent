@@ -1,6 +1,8 @@
 # Testing
 
-This document describes the project's testing posture and expected test behaviours. It is implementation-facing guidance, not domain glossary language.
+This document owns the project's testing posture and expected test behaviors. Current observable workflows belong in
+[`product-behavior.md`](./product-behavior.md), and the retrieval contract exercised by Card Query tests belongs in
+[`card-query.md`](./card-query.md). This is implementation-facing guidance, not domain glossary language.
 
 ## Test Runner
 

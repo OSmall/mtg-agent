@@ -1,93 +1,110 @@
 # Architecture
 
-The MVP was delivered as local opencode tooling: tools, agents, and skills used by a local opencode agent. This kept the
-first implementation small and allowed the user to rely on their existing ChatGPT subscription for LLM access.
+Tomekin is a local TypeScript and Bun application delivered through a project-local OpenCode agent. Its architecture
+keeps deterministic product services separate from agent methodology and keeps SQLite and external data authority
+behind explicit adapters.
 
-The product logic should not be embedded directly in opencode prompts, skills, or tool glue. Collection import, Collection analysis, Availability reasoning, Deck Opportunity discovery, Deck Candidate construction, legality checks, and structured output generation should live in a portable core that can later be reused by a web-based, multi-user hosted product.
+Current observable workflows are defined in [Product Behavior](./product-behavior.md). The persisted model is defined
+in [Data Model](./data-model.md), structured retrieval in [Card Query](./card-query.md), and verification policy in
+[Testing](./testing.md). Historical rationale and adopted trade-offs live in [`adr/`](./adr/).
 
-## Architectural Shape
+## Current Components
 
-- **Portable core**: owns domain and product logic without depending on opencode, local filesystem paths, a chat-only workflow, hosted infrastructure, or UI framework code.
-- **Opencode adapter**: exposes the portable core through local tools, agents, and skills.
-- **Future hosted adapter**: may expose the same portable core through web APIs, background jobs, hosted persistence, authentication, and a richer user interface.
+### Portable core
 
-The portable core should expose typed application-service functions. It should not expose MCP-shaped APIs as its primary interface, and it should not require opencode concepts at the service boundary.
+`packages/core` owns domain types, runtime schemas, application-service contracts, validation, Format construction and
+legality assessment, Deck Building Briefs, Card Query input and result types, Collection import behavior, rendering,
+and Agent Tool handlers. It does not depend on OpenCode, Drizzle, SQLite paths, or a user interface.
 
-Expected business failures at service boundaries should be represented with `neverthrow` Result types. Zod schemas should provide runtime validation for data entering or leaving adapter seams, including opencode tools and future web APIs.
+Expected service failures use typed `Result` values. Zod validates data at service and adapter boundaries. Repository
+ports expose only the persistence operations each service needs.
 
-Persistence is accessed through repository interfaces rather than directly from deck-building logic. The local
-implementation uses SQLite. Future hosted implementations may replace the local repository adapter without changing the
-core service contracts.
+### SQLite adapter
 
-The SQLite repository implementation uses Drizzle ORM. Drizzle schema, migration, and query code remain inside the
-persistence adapter and do not leak into service contracts.
+`packages/sqlite` implements repository ports with Drizzle and SQLite. It owns schema, generated migrations,
+transactional dataset and Collection replacement, Deck Candidate persistence, reference queries, and the internal SQL
+compiler for Card Query.
 
-The default local SQLite database path is `.data/tomekin.sqlite` and is configurable with `TOMEKIN_DB_PATH`. Local
-database files are not committed, and migrations run against the configured database path.
+SQL, table names, joins, and migration details do not cross the repository boundary. Card Query's public contract is
+allowlisted and typed; all query values are bound parameters. See ADRs
+[`0005`](./adr/0005-repository-ports-with-sqlite-mvp.md),
+[`0006`](./adr/0006-drizzle-for-sqlite-repositories.md),
+[`0010`](./adr/0010-explicit-sqlite-migrations.md), and
+[`0013`](./adr/0013-sql-backed-card-query-repository.md).
 
-Persisted records and relationships are documented in [`data-model.md`](./data-model.md).
+The default database path is `.data/tomekin.sqlite`, configurable with `TOMEKIN_DB_PATH`. Database files are local and
+uncommitted.
+
+### CLI adapter
+
+`packages/cli` owns explicit local commands for migrations, Scryfall bulk sync/import, ManaBox Collection import, and
+the one-time Card Set migration preparation workflow. It wires core services to SQLite repositories and renders command
+results for a human operator.
+
+Only the explicit Scryfall sync command performs live Scryfall network requests. Local-file Scryfall import and ManaBox
+Collection import read user-supplied local files.
+
+### Agent harness adapter
+
+`packages/opencode` and `.opencode/` expose the approved Agent Tools, the primary deck-building agent, and focused
+discovery, construction, tuning, and Card Query methodology. The adapter translates tool input and output but does not
+receive raw database, shell, source-tree, or arbitrary network authority for normal product use.
+
+Some contextual deck-building behavior remains in skills while its stable service shape is being proven. Deterministic
+facts and invariants—reference readiness, Card Query, identity resolution, legality, rendering, Collection evidence,
+and persistence—remain behind product tools. The current authority and confirmation boundaries are part of
+[Product Behavior](./product-behavior.md), not implicit prompt convention.
+
+## Package and Dependency Shape
+
+The repository is a small Bun workspace with `core`, `sqlite`, `cli`, and `opencode` packages. `core` defines portable
+contracts. `sqlite` depends on those contracts to provide persistence. `cli` and `opencode` are sibling adapters that
+compose core services with SQLite repositories.
+
+This separation permits another interface or persistence implementation without changing the domain vocabulary or
+agent-facing product contract. It does not imply distributed services or a large monorepo, and the project does not use
+Turborepo.
+
+## Authority Boundaries
+
+- **User intent:** the confirmed Format-specific Deck Building Brief and subsequent explicit confirmations authorize
+  discovery, construction, tuning, and persistence choices.
+- **Collection:** the latest successful ManaBox import is read-only evidence of owned rows. Tomekin does not write back
+  or mutate imported Existing Decks.
+- **Reference facts:** compatible local Scryfall datasets are authoritative for card identity, text, legality, Sets,
+  Printings, Game Changer flags, EDHREC rank, and Oracle Tags.
+- **Retrieval:** Card Query and reference repositories expose bounded allowlisted reads. Raw SQL and arbitrary database
+  access are not Agent Tools.
+- **Legality:** deterministic service results cannot be overridden by the agent. Explicit Rule Zero exceptions remain
+  labelled user-authorized exceptions rather than rewritten facts.
+- **Strategy:** the agent reasons about roles, packages, Synergy, play experience, and trade-offs. These are explained
+  proposals, not deterministic or source-backed facts.
+- **Persistence:** only confirmed full Deck Candidates are saved. Deck Opportunities and Deck Change Proposals are
+  transient, and saving never changes the Collection.
+- **External network:** normal deck-building is local. Live data access occurs only through an explicit user-invoked
+  Scryfall sync.
+
+ADR 0005 established portable repository ownership and named `DeckOpportunity` among the records the anticipated MVP
+would save. That persistence portion was not implemented. The current services and Product Behavior contract persist
+Deck Candidates only; the ADR remains historical rationale for the repository boundary rather than evidence that every
+listed record shipped.
+
+## Data and Request Flow
+
+Scryfall sync or local import populates local reference records. ManaBox import resolves owned rows against that
+reference data and transactionally replaces the current Collection snapshot. The agent then calls typed Agent Tools,
+which validate requests in core services and read or write through repository ports. SQLite executes the bounded data
+operations and returns domain-shaped results. Rendering produces stable Markdown and a Portable Decklist before a
+confirmed candidate is persisted.
+
+Imports and repository writes preserve the last usable state on expected validation or replacement failures. Tests use
+the same public services and repository boundaries with isolated temporary databases; see [Testing](./testing.md).
 
 ## Technology Baseline
 
-- **Language**: TypeScript.
-- **Runtime and package manager**: Bun.
-- **Service error handling**: `neverthrow` Result types at application-service seams.
-- **Runtime validation**: Zod schemas at adapter and service boundaries.
-- **MVP persistence**: SQLite behind repository interfaces.
-- **SQLite access layer**: Drizzle ORM.
-- **External card data**: explicit local Scryfall sync; no automatic background sync in the MVP.
-- **Toolchain installation**: Bun is installable through mise for local development.
-- **Runtime posture**: Bun is a first-class project dependency, not only a convenience wrapper around Node.js workflows.
-- **Testing posture**: `bun test` is the default test runner. Testing behaviour and TDD expectations are documented in [`testing.md`](./testing.md).
-
-## Repository Shape
-
-The project uses a small Bun workspace.
-
-Current package boundaries:
-
-- **Core package**: portable MTG collection and deck-building product logic.
-- **SQLite package**: Drizzle schema, migrations, and local repository implementations.
-- **CLI package**: local command-line entrypoints that wire the core and SQLite implementation together for manual imports and other local operations.
-- **Opencode package**: local opencode tools, agents, skills, and adapter glue that wires the core and SQLite implementation together.
-
-The workspace boundary exists to keep the core reusable by later interfaces. CLI and opencode are sibling adapters over the same core and persistence packages. This should not imply a large monorepo, distributed system, or premature package proliferation.
-
-The project does not use Turborepo. Bun workspaces are enough for the current package count, and avoiding Turborepo
-keeps local tooling simpler. The workspace structure remains compatible with adding Turborepo later if task
-orchestration, caching, CI performance, or additional apps make it useful.
-
-## Design Philosophy
-
-- Keep the local product fast without trapping product logic in local-only automation.
-- Keep domain concepts represented in code independently from the first delivery surface.
-- Treat opencode as the first interface to the product, not as the product's domain model.
-- Leave room for later multi-user hosting by keeping persistence, authentication, deployment, and UI decisions outside the core until they are deliberately chosen.
-
-## Resolved Constraints
-
-- Agent-facing card retrieval should use Card Query through core Agent Tools rather than raw SQL or database MCP
-  access. See ADR 0012.
-- Card Query is CQL2-inspired but not yet a claim of CQL2 conformance.
-- The normal deck-building agent should be workflow-light but authority-bound: safe product tools only, no raw database
-  MCP, and deterministic tools for legality, persistence, and final Collection checks.
-
-## Skill-first Methodology Proving
-
-Stable Collection analysis and Deck Opportunity product logic still belong in the portable core. Before those Interfaces
-are understood, the OpenCode adapter may temporarily hold nondeterministic discovery, construction, and tuning
-methodology in focused skills. Core Card Query, reference facts, legality, Collection evidence, rendering, and
-persistence remain authoritative.
-
-This proving Seam is intentionally temporary rather than a reversal of the portable-core direction. Promote only
-repeatable calculations whose inputs, outputs, errors, and freshness requirements have been demonstrated through the
-manual invariant scenarios. Transient skill-produced Deck Opportunity shortlists are not the durable Deck Opportunity
-records described by the product model.
-
-## Open Decisions
-
-The following decisions have not been resolved yet:
-
-- LLM orchestration boundary.
-- External MTG data refresh cadence and caching strategy.
-- Deployment shape for any future hosted product.
+- TypeScript 7 and Bun workspaces/runtime/package management.
+- Zod for runtime schemas at service and adapter boundaries.
+- `neverthrow` `Result` types for expected application-service failures.
+- SQLite with Drizzle behind repository ports.
+- Bun's test runner for deterministic unit and integration coverage.
+- OpenCode as the current local agent harness.
