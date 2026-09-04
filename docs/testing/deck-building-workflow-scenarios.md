@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Use these frozen scenarios to evaluate Deck Opportunity discovery, fresh 60-card construction, and 60-card tuning
-without requiring one exact decklist. They are manual or opt-in live-model checks and do not run under `bun test`.
+Use these frozen scenarios to evaluate Deck Opportunity discovery, fresh construction, and Deck Tuning without
+requiring one exact decklist. They are the manual live-model quality gate and do not run under `bun test`.
 
 For every run record date, Tomekin revision, Collection import timestamp, model, reasoning effort, and material Brief
 assumptions. Run the initial reference pass with Sol at one fixed reasoning effort. Compare Terra only at that same
@@ -21,7 +21,7 @@ Every applicable scenario must satisfy all of these:
 - Distinguish selection or looting from net card advantage.
 - Support curve and mana conclusions with explicit evidence.
 - Challenge weak cards instead of retaining them merely because they match the theme.
-- Recheck scoped final Availability before rendering a Deck Candidate.
+- Recheck final scoped Collection quantities and owned-row evidence before rendering a Deck Candidate.
 - Do not persist a shortlist, proposal, or newly revealed final tuning change set.
 
 Any critical-invariant failure fails the scenario regardless of the subjective deck quality.
@@ -94,7 +94,42 @@ Use a binder and Existing Deck with the same name, allow only the binder plus a 
 stronger tempting cards in the excluded same-name deck.
 
 Accept when every Collection query preserves exact `(locationType, locationName)` pairs, projected evidence excludes the
-same-name deck, and the final Availability recheck uses the same scope.
+same-name deck, and the final Collection quantity and owned-row check uses the same scope.
+
+## Scenario 10: Commander Nominated Cards
+
+Present a Commander Deck Candidate and several nominated additions: at least one strong fit, one redundant or off-plan
+card, and one plausible card whose cost depends on the Addition Pool.
+
+Accept when the agent recommends none, some, or all on their merits, answers the nominated-card question before offering
+alternatives, pairs every accepted addition with a cut, and states material assumptions.
+
+## Scenario 11: Commander Structural Repair
+
+Present a Commander deck with one meaningful structural deficit and no same-role cut that would preserve the repair.
+Include multi-role and modal cards whose contributions cannot be represented by raw counts alone.
+
+Accept when the agent identifies the deficit, chooses a justified cross-role cut from a genuine surplus, accounts for
+overlapping and conditional roles, and reanalyses the aggregate deck. Repeat with a healthy deck and accept only a
+like-for-like improvement that preserves its structure.
+
+## Scenario 12: Commander Identity And Protection
+
+Present a protected theme or pet card, then offer both a same-Color-Identity commander swap and a commander that changes
+Color Identity.
+
+Accept when the protected card is preserved, the same-identity swap is evaluated with command-zone trade-offs, and the
+Color Identity change is treated as a separate Deck Candidate variant requiring confirmation before construction.
+
+## Scenario 13: Commander Addition Pools And Partial Acceptance
+
+Run the same open-ended tuning request once with a Collection-only Addition Pool and once with all legal cards including
+Missing Cards. Partially accept the resulting proposal.
+
+Accept when searches remain inside the stated Addition Pool, Collection evidence uses the confirmed location scope,
+every proposed addition has a cut, and partial acceptance triggers deck-size, role, package, curve, and legality
+re-analysis. The agent must show the exact resulting change set and persistence target, then wait for separate
+confirmation before saving.
 
 ## Recording Results
 
@@ -121,7 +156,7 @@ After choosing:
 ```text
 Build the [chosen opportunity] direction under the confirmed Brief. Before presenting the final candidate, explicitly
 review the curve, distinguish net card advantage from selection or looting, challenge the three weakest included
-nonlands, and recheck final Availability against the unchanged Collection Location allow-list.
+nonlands, and recheck final Collection quantities and owned rows against the unchanged Collection Location allow-list.
 ```
 
 ### Existing Deck tuning

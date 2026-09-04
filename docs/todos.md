@@ -4,10 +4,6 @@ Authored and edited only by osmall, not agents.
 
 ## List
 
-- Improve logging. Add a logging framework and make it robust.
-  - It is not yet robust. It's a bit spaghetti. Especially with the logging within tests that use env variables to print
-    them to the right place. More thought needs to go into this.
-- Pin versions of dependencies.
 - figure out schema.ts ```.default(sql`'[]'`)```
 - use T3.env for environment variables
 - explore defined roles on DeckCandidateCard e.g. "payoff" or "enabler"
@@ -22,3 +18,5 @@ Authored and edited only by osmall, not agents.
 - Make better use of .jsonl Scryfall files i.e. stream them to save memory
 - Make deck candidate updates much faster. Right now, a 3 card substitution update takes like 6 mins; unacceptable.
 - Bring back event logging in the scryfall sync. Right now, we're a bit in the dark as to the progress.
+- Clean up `db:sqlite:migration:prepare-card-set-search`
+- Rename skills to make more sense e.g. tomekin-deck-building -> tomekin-orchestrator or something
