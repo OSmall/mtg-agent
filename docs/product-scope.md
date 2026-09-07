@@ -1,67 +1,76 @@
 # Product Scope
 
-This project provides an AI agent with expertise in Magic: The Gathering and specialises in parsing the user's card collection to assist with building cohesive and strategically viable decks.
+This document owns Tomekin's product promise, supported scope, boundaries, and non-goals. Current observable workflows
+are defined in [`product-behavior.md`](./product-behavior.md); possibilities that are not current commitments belong in
+[`future-direction.md`](./future-direction.md).
 
 ## Product Promise
 
-The project is a collection-first deck builder.
+Tomekin is a local, collection-first Magic: The Gathering deck builder. It helps a player turn an imported record of
+their real cards into cohesive, explainable Deck Candidates while making owned and missing evidence visible.
 
-Its primary value is helping a player turn their real MTG collection into stronger, explainable deck candidates. Collection analysis, synergy analysis, rules awareness, price awareness, and deck optimisation all exist to support that core promise.
+The product favours recommendations that can be inspected and revised. User goals, preferred play experience, intended
+strength, tolerance for Missing Cards, and permitted Collection Locations shape the result; maximizing power or owned
+card usage is not an automatic objective.
 
-## Format Direction
+## Supported Scope
 
-Tomekin reached its Commander-first MVP on 14 July 2026 with the merge of the `revamp` branch into `main`. That achieved
-baseline established singleton deck construction, commander identity, casual power expectations, and collection-aware
-deck building while keeping the product language Format-extensible.
+- Commander/EDH construction and tuning, including Commander Bracket and explicit Rule Zero handling.
+- Paper-first 60-card construction and tuning for Standard, Pioneer, Modern, Legacy, Vintage, Pauper, and Casual 60.
+- Collection Opportunity discovery, direct fresh construction, and Existing Deck or Deck Candidate tuning as separate
+  valid routes.
+- Optional 60-card Sideboards when requested; Commander/EDH has no Sideboard in Tomekin's workflow.
+- Strict full-snapshot import from ManaBox Collection CSV files, with binder and deck Collection Locations.
+- Explicit Scryfall bulk-data sync and local-file import for Card Identities, Card Printings, Card Sets, legality, and
+  Oracle Tags.
+- Local Card Query over Card Identity, legality, tags, Collection rows, and Printing/Set criteria.
+- Deterministic local card resolution, Format construction validation, rendering, and Deck Candidate persistence.
+- Local SQLite storage for the current Collection snapshot, import history, reference data, and saved Deck Candidates.
 
-On 6 August 2026 Tomekin added the paper-first 60-card Constructed family: Standard, Pioneer, Modern, Legacy, Vintage,
-Pauper, and Tomekin's unsanctioned Casual 60 Format. The supported workflow includes the internal Format model,
-reference imports, deterministic validation, persistence, Card Query, rendering, a researched construction methodology,
-and public agent integration. Sideboards are optional and built only when requested. Normal local operation does not
-claim current metagame knowledge: Sideboard work uses user-supplied context or records broad general-purpose
-assumptions.
-
-On 9 August 2026 the local agent workflow separated Collection Opportunity discovery, fresh construction, and tuning.
-Open or seeded Collection exploration now compares viable directions before a full decklist. Existing 60-card decks use
-a diagnostic tuning workflow that may recommend focused repair, rebuild around an identity, or fresh construction. These
-are agent-methodology workflows over the existing portable tools; durable Deck Opportunity persistence and structured
-Collection Access Policy enforcement remain separate follow-on work.
-
-## Collection Import
-
-The MVP supports ManaBox collection CSV exports only.
-
-The known initial ManaBox export shape is:
-
-```csv
-Binder Name,Binder Type,Name,Set code,Set name,Collector number,Foil,Rarity,Quantity,ManaBox ID,Scryfall ID,Purchase price,Misprint,Altered,Condition,Language,Purchase price currency,Added
-```
-
-The project should treat imported collection data as evidence of the user's owned physical cards. Cards already assigned to decks remain part of the Collection, but they are not necessarily freely available for new deck candidates.
-
-For the MVP, imports should stay simple: each import call should take the entire Collection as a fresh snapshot. The import should be strict and fail fast if required collection data is missing, malformed, or ambiguous. Incomplete collection data should be treated as either a problem with the user's source collection data or a problem with the import logic, not as something the agent should silently work around.
-
-ManaBox Lists should not be imported as part of the Collection because ManaBox uses Lists for cards that may not be owned, such as wishlists and buylists. Rows belonging to Lists should be skipped rather than treated as import failures. The agent has no MVP use for ManaBox Lists. Skipped Lists should still be reported in the import summary.
-
-The agent should infer Existing Decks from imported Collection metadata such as binder name, binder type, or location where possible.
-
-ManaBox references:
-
-- [Import and export the collection](https://manabox.app/guides/collection/import-export/) documents ManaBox collection CSV import/export and supported card properties.
-- [Getting started with the collection](https://manabox.app/guides/collection/getting-started/) distinguishes binders, which represent owned cards, from lists, which may represent cards the user does not own.
-- [Decks in the collection](https://manabox.app/guides/decks/collection-decks/) explains ManaBox's registered deck support and how deck cards can be tracked as physically located in decks.
+The exact workflow and output guarantees are in [Product Behavior](./product-behavior.md). The public retrieval
+language is in [Card Query](./card-query.md).
 
 ## Product Principles
 
-- Optimise for collection-first deck building before broader MTG assistant behaviour.
-- Prefer explainable recommendations over opaque optimisation.
-- Treat user priorities as inputs, not fixed assumptions.
-- Keep format language extensible.
-- Keep Collection Access Policy flexible enough to express protection and exclusion needs without turning the MVP into collection management software.
-- Define capabilities before choosing technologies or architecture.
+- Prioritize collection-first deck building before broader MTG assistant behavior.
+- Prefer explainable recommendations over opaque optimization.
+- Treat user priorities as inputs rather than fixed assumptions.
+- Keep Format language and core services extensible.
+- Keep deterministic facts and validation in product services while leaving contextual strategy to the agent.
+- Keep external and persistence authority narrow and explicit.
 
 ## Current Boundaries
 
-Deferred scope and technology directions are tracked in [`future-direction.md`](./future-direction.md).
+The Collection is imported source data, not Tomekin-managed inventory. Tomekin reads and analyzes it but does not move
+cards, update locations, register source decks, or write back to ManaBox. The user updates their source collection
+system and reimports after physical changes.
 
-The MVP is also not intended to replace the user's collection management software. The agent should treat the Collection as imported source data. It may read and analyse the Collection, but it should not mutate Collection state, mark cards as moved, create Existing Deck records, or update binder locations. The user remains responsible for updating Collection state in the source system after moving cards, building decks, or reorganising binders, then reimporting or resyncing that data into the agent.
+Deck Opportunities and Deck Change Proposals are transient agent analysis. Only Deck Candidates have a current product
+persistence service. Saving a Deck Candidate neither changes the Collection nor records exact physical copies chosen
+for assembly.
+
+Collection Access Policy is not a structured or independently enforced service today. The agent confirms an exact
+Collection Location allow-list in the working context, repeats it in Card Queries, and performs a best-effort final
+owned/missing check. There is no persisted final Availability or Collection Pull List service.
+
+Normal deck-building uses local data and makes no hidden network calls. Only the explicit Scryfall sync command fetches
+live Scryfall data. The agent has no arbitrary web, shell, raw SQL, or generic database authority.
+
+Tomekin stores source purchase-price metadata when present but does not currently provide live price lookup, price-aware
+optimization, or budgeted purchase recommendations. It also does not claim current metagame knowledge, exhaustive combo
+detection, gameplay simulation, or deterministic strategic optimality.
+
+The current ManaBox importer does not implement the desired skip-and-summary behavior for List rows; unsupported
+location types fail the readable import and preserve the previous snapshot. That gap is tracked in
+[issue #39](https://github.com/OSmall/tomekin/issues/39).
+
+## Non-goals
+
+- Replacing collection-management software or synchronizing changes back to a source system.
+- Acting as a general raw database, shell, browsing, or coding agent.
+- Automatically downloading card data during ordinary deck-building.
+- Treating generated strategy, roles, Synergy, or tuning advice as a mathematical guarantee.
+- Persisting every exploratory query, Deck Opportunity, Deck Change Proposal, or agent conversation.
+- Providing a hosted service, packaged installer, or graphical user interface in the current clone-based alpha.
+
+Uncommitted possibilities beyond these boundaries are described in [Future Direction](./future-direction.md).

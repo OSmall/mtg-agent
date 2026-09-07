@@ -12,8 +12,12 @@ non-trivial card, tag, or Collection searches.
 Produce a Deck Change Proposal, not a claim of mathematical optimality. Diagnose before searching for replacements, and
 do not assume every Existing Deck is a sound foundation.
 
-The source classifications behind this method are recorded in
-`docs/plans/deck-building-workflow-rebuild.md`.
+Method provenance: Ben Bleiweiss's
+[five deck-building diagnostics](https://magic.wizards.com/en/news/feature/deckbuilding-101-five-tips-better-deckbuilding-2006-06-05)
+support mana repair, minimum-size consistency, plan focus, curve scrutiny, and dependency analysis; Reid Duke's
+[card-advantage guidance](https://magic.wizards.com/en/news/feature/basics-card-advantage-2015-07-13) supports the
+selection-versus-advantage distinction. Named historical lists and categorical card-type rules are not part of the
+method.
 
 ## Establish Tuning Context
 

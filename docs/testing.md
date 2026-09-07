@@ -1,6 +1,8 @@
 # Testing
 
-This document describes the project's testing posture and expected test behaviours. It is implementation-facing guidance, not domain glossary language.
+This document owns the project's testing posture and expected test behaviors. Current observable workflows belong in
+[`product-behavior.md`](./product-behavior.md), and the retrieval contract exercised by Card Query tests belongs in
+[`card-query.md`](./card-query.md). This is implementation-facing guidance, not domain glossary language.
 
 ## Test Runner
 
@@ -16,7 +18,8 @@ Do not add another test runner unless a concrete Bun test limitation blocks a ne
 
 The default `bun test` suite should include both unit and integration tests. Integration tests should remain fast by using tiny fixtures and isolated temporary local SQLite databases.
 
-Separate focused commands such as `test:unit`, `test:integration`, or `test:large-data` may be added later when there is a concrete need. The default test command should stay comprehensive enough to trust before coding onward.
+The default test command stays comprehensive enough to trust before coding onward. Focused file or package commands are
+useful during development but do not replace the full-suite completion check.
 
 ## TDD Posture
 
@@ -34,9 +37,9 @@ Core unit tests should cover deterministic product behaviour first, including:
 
 - Parsing decisions.
 - Validation.
-- Availability calculations.
+- The evaluator's explicit boundary that final Availability is not computed there.
 - Portable Decklist rendering.
-- Freshness status.
+- Reference-data readiness and source timestamps.
 - Legality result shaping.
 - Service business errors.
 - Deck Building Brief schema defaults and confirmation assumptions.
@@ -47,6 +50,7 @@ SQLite integration tests should cover repository-boundary behaviour, including:
 - Repository transactionality.
 - Failed import non-destructiveness.
 - Current Collection snapshot replacement.
+- Card Query Collection-scope quantities, exact-location filtering, and owned-row hydration.
 - Deck Candidate save, reopen, list, and transactional card-row replacement.
 - SQLite migrations that rebuild tables referenced by foreign keys, using a populated pre-migration fixture and
   `PRAGMA foreign_key_check` assertions.
@@ -95,7 +99,8 @@ Scryfall card-shape regression fixtures may be extracted from real Scryfall bulk
 fields. Invalid-shape tests may minimally mutate those extracted real fixtures to create the invalid condition under
 test. These fixtures should remain tiny and package-local, and `bun test` must not require full Scryfall bulk files.
 
-Anonymised real-export regression fixtures may be added later when they protect against concrete import failures that small fixtures missed.
+Anonymised real-export regression fixtures are appropriate only when they protect against a concrete import failure
+that small fixtures missed.
 
 ## SQLite Integration Tests
 
@@ -144,7 +149,7 @@ Scryfall sync tests should use small package-local Scryfall fixtures, not real S
 
 Tests must not call live Scryfall network services as part of `bun test`.
 
-A separate opt-in large-dataset smoke test command may be added later for real Scryfall bulk data. It should not run as part of the default test suite and should not be required for ordinary TDD.
+Real Scryfall bulk data is outside the default suite and is not required for ordinary TDD.
 
 ## Exact Output Tests
 
@@ -162,9 +167,10 @@ The default test suite should not call live LLMs.
 
 Test deterministic prompt inputs, retrieved context, service outputs, and rendered artifacts with normal tests. Live LLM evaluation should be explicit, separate from `bun test`, and used only when intentionally assessing model behaviour.
 
-LLM-produced recommendations should be treated as proposals until deterministic services validate card identity,
-Collection status, Availability, Portable Decklist format, and Format legality where local data supports those checks.
-Failed validation should produce structured failures or revision requests.
+LLM-produced recommendations are proposals until deterministic services validate card identity, Portable Decklist
+format, and Format legality and until Card Query provides scoped owned-copy evidence. The current evaluator explicitly
+does not compute final Availability; the agent applies the confirmed Collection Location allow-list to Card Query
+quantities and rows. Failed deterministic validation produces structured failures or revision requests.
 
 60-card Constructed coverage remains deterministic: strict Brief and candidate schemas, the supported Format matrix,
 Mainboard and Sideboard shape, cross-section copy limits and exceptions, sanctioned legality and Casual 60, Vintage
@@ -186,23 +192,9 @@ Critical failures include Collection-scope leakage, deterministic illegality, fa
 padded Deck Opportunity shortlist, conflating selection with net card advantage, unexamined curve or mana claims,
 retaining weak cards solely for theme, and persistence before the required confirmation.
 
-## Future Deck Tuning Scenario Evaluation
-
-The initial `commander-deck-tuning` skill does not require a comprehensive LLM scenario suite in its definition of done.
-Future evaluation should use acceptable-behaviour invariants rather than golden lists of exact swaps because Deck Tuning
-recommendations are intentionally nondeterministic.
-
-Representative scenarios should cover:
-
-- User-nominated cards where none, some, or all should be recommended.
-- A structural deficit repaired by a cross-role cut.
-- A healthy deck receiving like-for-like improvements.
-- Multi-role and modal cards.
-- A commander swap and a separate proposed Color Identity change.
-- A protected theme or pet card.
-- Open-ended tuning with Collection-only and all-legal-card Addition Pools.
-- Partial acceptance followed by re-analysis.
-
-Useful invariants include explicit Addition Pool and assumptions, paired additions and cuts, preserved deck size,
-deterministic legality validation when a revised Deck Candidate is built, evidence-backed explanations, and no
-persistence before confirmation of the exact final change set.
+The corpus also owns Commander tuning scenarios for nominated-card review, structural-deficit and like-for-like cuts,
+multi-role cards, commander or Color Identity changes, protected cards, different Addition Pools, and partial
+acceptance. Across those scenarios, the current quality gate requires an explicit Addition Pool and assumptions,
+paired additions and cuts, aggregate re-analysis, preserved deck size, deterministic legality validation when a
+revised Deck Candidate is built, evidence-backed explanations, and no persistence before confirmation of the exact
+final change set.

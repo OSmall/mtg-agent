@@ -12,6 +12,15 @@ rendering, and persistence. Load `query-cards` before non-trivial tag or card qu
 Produce a reasoned Deck Change Proposal, not a claim of mathematical optimality. Keep generic Deck Tuning language
 format-extensible; these heuristics apply only to Commander/EDH.
 
+Method provenance: EDHREC's
+[Commander upgrade guide](https://edhrec.com/guides/edhrec-guide-to-upgrading-your-commander-deck) supports repairing
+structural deficits, commander-specific counts, curve review, and synergistic flexible additions; the
+[Commander Power Levels template](https://www.commanderpowerlevels.com/deckbuilding/template) supports treating role
+targets as starting points and cards as multi-role. EDHREC's
+[commander curve analysis](https://edhrec.com/articles/paradigm-shift-how-your-commanders-mana-value-alters-your-curve)
+and [Wizards' Commander Brackets update](https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025)
+support contextual curve and play-experience judgments rather than a universal optimum.
+
 ## Establish Tuning Context
 
 Determine from the conversation or a concise clarification:

@@ -10,6 +10,14 @@ user has chosen a commander or selected a Deck Opportunity from `collection-oppo
 canonical Commander construction method. It does not replace `tomekin-deck-building` for tool orchestration, legality
 validation, rendering, or persistence.
 
+Method provenance: the structural ranges are adjustable heuristics informed by the
+[Commander Power Levels deck-building template](https://www.commanderpowerlevels.com/deckbuilding/template), while
+curve expectations follow the EDHREC analysis of
+[commander Mana Value and curve](https://edhrec.com/articles/paradigm-shift-how-your-commanders-mana-value-alters-your-curve).
+[Wizards' Commander Brackets update](https://magic.wizards.com/en/news/announcements/commander-brackets-beta-update-october-21-2025)
+supports treating power as intended gameplay rather than a score inferred from isolated cards. These sources do not
+define a universal formula or guarantee an optimal deck.
+
 When discovery hands off a selected Deck Opportunity:
 
 - Treat its commander or other Format Anchor, functional game plan, expected play pattern, key Collection-supported

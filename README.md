@@ -9,8 +9,7 @@ deck-building actions through a project-local opencode agent and custom tools.
 ## Project Status
 
 The public alpha remains intentionally clone-based: clone the repo, install dependencies, sync Scryfall data, import
-your collection, open opencode, and use the local deck-building agent. Development after the MVP milestone is tracked as
-post-MVP evolution rather than as unfinished MVP work.
+your Collection, open OpenCode, and use the local deck-building agent.
 
 The project is not packaged for npm, does not include an installer, and does not provide hosted sync or hosted deck-building
 services yet.
@@ -176,8 +175,14 @@ TOMEKIN_LOG_FORMAT=json TOMEKIN_LOG_FILE=.data/tomekin.jsonl opencode
   purchase recommendations are not yet supported.
 - Deck Opportunity shortlists are transient in the current agent workflow; durable Deck Opportunity persistence remains
   future work.
-- Collection Location allow-list enforcement is procedural until the Deck Building Brief and evaluator gain a structured
-  Collection Access Policy.
+- Collection Location allow-list enforcement is procedural; the Deck Building Brief and evaluator do not carry a
+  structured Collection Access Policy.
+- Deck Opportunities and Deck Change Proposals are transient. The current persistence service saves Deck Candidates
+  only.
+- Final Available, Committed, and Missing classifications are best-effort agent conclusions from scoped Card Query
+  evidence, not a persisted Availability or Collection Pull List service.
+- ManaBox List rows are not currently skipped and summarized; an unsupported location type fails the readable import
+  and preserves the previous Collection snapshot ([issue #39](https://github.com/OSmall/tomekin/issues/39)).
 
 ## Development Commands
 
@@ -194,16 +199,19 @@ bun run typecheck
 ## Documentation
 
 - [`CONTEXT.md`](./CONTEXT.md): canonical glossary and domain language.
-- [`docs/product-scope.md`](./docs/product-scope.md): product promise, scope boundaries, format direction, and non-goals.
-- [`docs/mvp.md`](./docs/mvp.md): achieved MVP baseline, workflow, capability boundaries, and output expectations.
-- [`docs/architecture.md`](./docs/architecture.md): architecture direction, portability philosophy, and unresolved technology decisions.
-- [`docs/data-model.md`](./docs/data-model.md): persisted records and relationships for the MVP data model.
+- [`docs/product-scope.md`](./docs/product-scope.md): product promise, supported scope, boundaries, and non-goals.
+- [`docs/product-behavior.md`](./docs/product-behavior.md): current user-observable workflows, confirmations, outputs,
+  imports, and authority limits.
+- [`docs/card-query.md`](./docs/card-query.md): public Card Query request, result, relationship, quantity, and compilation
+  semantics.
+- [`docs/architecture.md`](./docs/architecture.md): current components, seams, and authority boundaries.
+- [`docs/data-model.md`](./docs/data-model.md): persisted records, relationships, and import invariants.
 - [`docs/testing.md`](./docs/testing.md): testing posture, TDD expectations, test layers, fixture guidance, and LLM test boundary.
 - [`docs/future-direction.md`](./docs/future-direction.md): deferred scope and likely future product directions.
 - [`docs/adr/`](./docs/adr/): hard-to-reverse architecture and technology decisions.
 
 ## Future Direction
 
-Current post-MVP work includes continued improvement of Collection-aware deck building and possible expansion beyond the
-currently supported Formats. Friendlier setup checks, packaging around stable commands, and additional interfaces over
-the same portable core remain future possibilities, not alpha promises.
+Possible future directions include friendlier setup, packaging around stable commands, and additional interfaces over
+the same portable core. They are possibilities rather than alpha promises; see
+[`docs/future-direction.md`](./docs/future-direction.md).

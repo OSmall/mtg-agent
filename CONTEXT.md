@@ -217,7 +217,7 @@ A meaningful relationship where cards reinforce, enable, reward, or amplify one 
 _Avoid_: Combo, similarity, theme
 
 **Commander/EDH**:
-The primary Format of Tomekin's achieved MVP baseline. Later Format expansion should preserve Commander/EDH behavior.
+The singleton multiplayer Format supported by Tomekin alongside its supported 60-card Constructed Formats.
 _Avoid_: Commander-only
 
 **Commander Bracket**:

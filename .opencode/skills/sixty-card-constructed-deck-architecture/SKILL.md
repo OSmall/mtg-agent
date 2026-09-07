@@ -11,8 +11,15 @@ an Existing Deck; enter this workflow from tuning only after the agent recommend
 fresh-construction path.
 
 Compose `tomekin-deck-building` for tool lifecycle, deterministic validation, rendering, and persistence. Load
-`query-cards` before non-trivial searches. The source classifications behind this method are recorded in
-`docs/plans/deck-building-workflow-rebuild.md`.
+`query-cards` before non-trivial searches.
+
+Method provenance: the plan-first construction sequence follows Andrew Quinn's
+[six-step deck-building method](https://draftsim.com/build-mtg-deck/); card-advantage distinctions and Sideboard plans
+follow Reid Duke's [card-advantage](https://magic.wizards.com/en/news/feature/basics-card-advantage-2015-07-13) and
+[Sideboard](https://magic.wizards.com/en/news/feature/sideboard-plans-2015-03-09) guidance; the land estimate is Frank
+Karsten's [updated analysis](https://www.tcgplayer.com/content/article/How-Many-Lands-Do-You-Need-in-Your-Deck-An-Updated-Analysis/cd1c1a24-d439-4a8e-b369-b936edb0b38a/).
+Named cards, historical lists, universal curve claims, and current-metagame claims from those sources are not part of
+the method.
 
 ## 1. Establish The Plan
 
