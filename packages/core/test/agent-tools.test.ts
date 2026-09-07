@@ -1,4 +1,4 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, setSystemTime, test} from "bun:test";
 import {err, ok} from "neverthrow";
 import {
     type AgentToolRepositories,
@@ -13,21 +13,49 @@ const sourceUpdatedAt = new Date("2026-08-01T00:00:00.000Z");
 
 describe("agent tool handlers", () => {
     test("validates a legal 60-card Constructed candidate with source provenance", async () => {
-        const handlers = createAgentToolHandlers(repositoriesWithCards([basicForest()]));
+        setSystemTime(new Date("2026-08-06T00:00:00.000Z"));
+        try {
+            const handlers = createAgentToolHandlers(repositoriesWithCards([basicForest()]));
 
-        const result = await handlers.validateFormatLegality({
-            brief: modernBrief(),
-            cards: [{cardIdentityId: forestId, quantity: 60, section: "mainboard"}],
-        });
+            const result = await handlers.validateFormatLegality({
+                brief: modernBrief(),
+                cards: [{cardIdentityId: forestId, quantity: 60, section: "mainboard"}],
+            });
 
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) throw new Error(result.error.message);
-        expect(result.value).toEqual({
-            status: "legal",
-            reasons: [],
-            warnings: [],
-            scryfallSourceUpdatedAt: sourceUpdatedAt,
-        });
+            expect(result.isOk()).toBe(true);
+            if (result.isErr()) throw new Error(result.error.message);
+            expect(result.value).toEqual({
+                status: "legal",
+                reasons: [],
+                warnings: [],
+                scryfallSourceUpdatedAt: sourceUpdatedAt,
+            });
+        } finally {
+            setSystemTime();
+        }
+    });
+
+    test("warns through the public handler when Scryfall reference data is stale", async () => {
+        setSystemTime(new Date("2026-08-16T00:00:00.000Z"));
+        try {
+            const handlers = createAgentToolHandlers(repositoriesWithCards([basicForest()]));
+
+            const result = await handlers.validateFormatLegality({
+                brief: modernBrief(),
+                cards: [{cardIdentityId: forestId, quantity: 60, section: "mainboard"}],
+            });
+
+            expect(result.isOk()).toBe(true);
+            if (result.isErr()) throw new Error(result.error.message);
+            expect(result.value).toEqual({
+                status: "legal",
+                reasons: [],
+                warnings: ["Scryfall reference data is 15 days old; refresh if current external facts matter."],
+                scryfallSourceUpdatedAt: sourceUpdatedAt,
+            });
+        } finally {
+            setSystemTime();
+        }
     });
 
     test("returns an illegal assessment for a recognized section that Modern does not permit", async () => {
